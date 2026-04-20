@@ -10,6 +10,7 @@ type FirebaseAdminStatus = {
   privateKey?: string;
   error?: string;
   testMode?: boolean;
+  credentialSource?: "service_account_env" | "legacy_env" | "json";
 };
 
 function isFirebaseAdminTestModeEnabled() {
@@ -47,19 +48,35 @@ function readFirebaseAdminStatus(): FirebaseAdminStatus {
       return {
         configured: false,
         error: "FIREBASE_ADMIN_CREDENTIALS_JSON is not valid JSON.",
+        credentialSource: "json",
       };
     }
   }
 
   const projectId =
+    process.env.FIREBASE_SERVICE_ACCOUNT_PROJECT_ID?.trim() ||
     process.env.FIREBASE_PROJECT_ID?.trim() ||
     parsedCredentials?.project_id ||
     process.env.GOOGLE_CLOUD_PROJECT?.trim();
   const clientEmail =
-    process.env.FIREBASE_CLIENT_EMAIL?.trim() || parsedCredentials?.client_email;
+    process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL?.trim() ||
+    process.env.FIREBASE_CLIENT_EMAIL?.trim() ||
+    parsedCredentials?.client_email;
   const privateKey =
+    process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, "\n") ||
     process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n") ||
     parsedCredentials?.private_key?.replace(/\\n/g, "\n");
+  const credentialSource = rawCredentials
+    ? "json"
+    : process.env.FIREBASE_SERVICE_ACCOUNT_PROJECT_ID?.trim() ||
+        process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL?.trim() ||
+        process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim()
+      ? "service_account_env"
+      : process.env.FIREBASE_PROJECT_ID?.trim() ||
+          process.env.FIREBASE_CLIENT_EMAIL?.trim() ||
+          process.env.FIREBASE_PRIVATE_KEY?.trim()
+        ? "legacy_env"
+        : undefined;
 
   if (!projectId || !clientEmail || !privateKey) {
     return {
@@ -67,6 +84,7 @@ function readFirebaseAdminStatus(): FirebaseAdminStatus {
       projectId,
       clientEmail,
       error: "Firebase Admin credentials are incomplete.",
+      credentialSource,
     };
   }
 
@@ -75,6 +93,7 @@ function readFirebaseAdminStatus(): FirebaseAdminStatus {
     projectId,
     clientEmail,
     privateKey,
+    credentialSource,
   };
 }
 

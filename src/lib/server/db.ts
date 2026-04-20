@@ -3,7 +3,7 @@ import "server-only";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { Firestore } from "@google-cloud/firestore";
+import { Firestore, type QuerySnapshot, type Transaction } from "@google-cloud/firestore";
 
 import { BETA_PLATFORM_PLAN_ID, DEFAULT_FEATURE_FLAGS } from "@/lib/constants";
 import type { DatabaseShape } from "@/lib/types";
@@ -278,6 +278,13 @@ async function writeLocalDatabase(database: DatabaseShape) {
 async function readFirestoreDatabase() {
   const snapshot = await getFirestoreCollection().get();
 
+  return hydrateFirestoreSnapshot(snapshot);
+}
+
+function hydrateFirestoreSnapshot(
+  snapshot: QuerySnapshot,
+) {
+
   if (snapshot.empty) {
     return hydrateDatabase();
   }
@@ -299,16 +306,20 @@ async function readFirestoreDatabase() {
   return hydrateDatabase(partial);
 }
 
-async function writeFirestoreDatabase(database: DatabaseShape) {
-  const client = getFirestoreClient();
+async function readFirestoreDatabaseInTransaction(transaction: Transaction) {
+  const snapshot = await transaction.get(getFirestoreCollection());
+  return hydrateFirestoreSnapshot(snapshot);
+}
+
+function writeFirestoreDatabaseInTransaction(
+  transaction: Transaction,
+  database: DatabaseShape,
+) {
   const collection = getFirestoreCollection();
-  const batch = client.batch();
 
   for (const key of STATE_KEYS) {
-    batch.set(collection.doc(key), { value: database[key] });
+    transaction.set(collection.doc(key), { value: database[key] });
   }
-
-  await batch.commit();
 }
 
 export async function readDatabase() {
@@ -320,14 +331,19 @@ export async function readDatabase() {
 export async function updateDatabase<T>(
   mutator: (database: DatabaseShape) => Promise<T> | T,
 ) {
+  if (getConfiguredBackend() === "firestore") {
+    return getFirestoreClient().runTransaction(async (transaction) => {
+      const database = await readFirestoreDatabaseInTransaction(transaction);
+      const result = await mutator(database);
+      writeFirestoreDatabaseInTransaction(transaction, database);
+      return result;
+    });
+  }
+
   const nextWrite = writeQueue.then(async () => {
-    const database = await readDatabase();
+    const database = await readLocalDatabase();
     const result = await mutator(database);
-    if (getConfiguredBackend() === "firestore") {
-      await writeFirestoreDatabase(database);
-    } else {
-      await writeLocalDatabase(database);
-    }
+    await writeLocalDatabase(database);
     return result;
   });
 

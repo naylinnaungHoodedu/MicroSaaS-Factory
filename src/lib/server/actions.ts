@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseProductTemplateId } from "@/lib/templates";
+import type { BillingInterval } from "@/lib/server/runtime-config";
 import {
   clearSessionCookie,
   createAdminSession,
@@ -22,7 +23,9 @@ import {
   connectGithub,
   connectResend,
   connectStripe,
+  createPlatformCheckoutSession,
   createInviteFromSignupIntent,
+  deletePlatformPlan,
   createValidationSession,
   createValidationTask,
   createInvite,
@@ -45,6 +48,7 @@ import {
   saveBuildSheet,
   saveSpecDocument,
   sendOnboardingTestEmail,
+  savePlatformPlan,
   restoreProduct,
   updateProductDetails,
   updateValidationTaskState,
@@ -60,6 +64,10 @@ function checkbox(formData: FormData, name: string) {
 
 function numeric(formData: FormData, name: string) {
   return Number(formData.get(name) ?? 0);
+}
+
+function parseBillingInterval(value: FormDataEntryValue | null): BillingInterval {
+  return value === "annual" ? "annual" : "monthly";
 }
 
 async function resolveRequestedAiMode(formData: FormData) {
@@ -199,19 +207,67 @@ export async function createInviteFromSignupIntentAction(signupIntentId: string)
 
 export async function updateFeatureFlagsAction(formData: FormData) {
   await requireAdminSession();
-  await updateGlobalFeatureFlags({
-    publicSignupEnabled: checkbox(formData, "publicSignupEnabled"),
-    selfServeProvisioningEnabled: checkbox(formData, "selfServeProvisioningEnabled"),
-    checkoutEnabled: checkbox(formData, "checkoutEnabled"),
-    platformBillingEnabled: checkbox(formData, "platformBillingEnabled"),
-    proAiEnabled: checkbox(formData, "proAiEnabled"),
-  });
+  try {
+    await updateGlobalFeatureFlags({
+      publicSignupEnabled: checkbox(formData, "publicSignupEnabled"),
+      selfServeProvisioningEnabled: checkbox(formData, "selfServeProvisioningEnabled"),
+      checkoutEnabled: checkbox(formData, "checkoutEnabled"),
+      platformBillingEnabled: checkbox(formData, "platformBillingEnabled"),
+      proAiEnabled: checkbox(formData, "proAiEnabled"),
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Feature flag update failed.";
+    redirect(`/admin?error=flags_invalid&reason=${encodeURIComponent(message)}`);
+  }
 
   revalidatePath("/admin");
   revalidatePath("/");
   revalidatePath("/pricing");
   revalidatePath("/signup");
   revalidatePath("/login");
+}
+
+export async function savePlatformPlanAction(formData: FormData) {
+  await requireAdminSession();
+
+  try {
+    await savePlatformPlan({
+      existingPlanId: String(formData.get("existingPlanId") ?? "") || undefined,
+      id: String(formData.get("id") ?? ""),
+      name: String(formData.get("name") ?? ""),
+      hidden: checkbox(formData, "hidden"),
+      monthlyPrice: numeric(formData, "monthlyPrice"),
+      annualPrice: numeric(formData, "annualPrice"),
+      featuresText: String(formData.get("featuresText") ?? ""),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Platform plan update failed.";
+    redirect(`/admin?error=plan_invalid&reason=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/pricing");
+  revalidatePath("/signup");
+  revalidatePath("/app", "layout");
+}
+
+export async function deletePlatformPlanAction(planId: string) {
+  await requireAdminSession();
+
+  try {
+    await deletePlatformPlan(planId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Platform plan deletion failed.";
+    redirect(`/admin?error=plan_invalid&reason=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/pricing");
+  revalidatePath("/signup");
+  revalidatePath("/app", "layout");
 }
 
 export async function createProductAction(formData: FormData) {
@@ -468,6 +524,28 @@ export async function runLiveOpsAutomationAction() {
   await runLiveOpsAutomation();
   revalidatePath("/admin");
   revalidatePath("/app", "layout");
+}
+
+export async function startPlatformCheckoutAction(formData: FormData) {
+  const { workspace } = await requireFounderContext();
+  const planId = String(formData.get("planId") ?? "");
+  const billingInterval = parseBillingInterval(formData.get("billingInterval"));
+  const returnPath = String(formData.get("returnPath") ?? "/pricing");
+
+  try {
+    const session = await createPlatformCheckoutSession(workspace.id, {
+      planId,
+      billingInterval,
+    });
+    redirect(session.url);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Checkout could not be started.";
+    const safeReturnPath = returnPath.startsWith("/app") ? returnPath : "/pricing";
+    const separator = safeReturnPath.includes("?") ? "&" : "?";
+    redirect(
+      `${safeReturnPath}${separator}billing=error&reason=${encodeURIComponent(message)}`,
+    );
+  }
 }
 
 export async function saveSpecAction(productId: string, formData: FormData) {

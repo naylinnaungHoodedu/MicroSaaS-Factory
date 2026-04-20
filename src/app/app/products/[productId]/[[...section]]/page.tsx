@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ActivityFeed } from "@/components/activity-feed";
 import { OpsHealthBoard } from "@/components/ops-health-board";
+import { ArchivedProductBanner, WorkflowLockNotice } from "@/components/product-page-shell";
 import {
   ProductTemplateBadge,
   TemplateGuidance,
@@ -55,6 +56,7 @@ import {
   updateLaunchStateAction,
 } from "@/lib/server/actions";
 import { requireFounderContext } from "@/lib/server/auth";
+import { buildProductPageViewModel } from "@/lib/server/product-page-view-model";
 import {
   getIntegration,
   getProductBundle,
@@ -87,36 +89,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   test_email: "Test email failed. Verify the sender domain and recipient address.",
 };
 
-const ARCHIVED_WORKFLOW_MESSAGE =
-  "This lane is archived. Workflow forms are read-only until you restore it, but you can still review the full record and clone it into a new baseline.";
-
-function ArchivedProductBanner({
-  archivedAt,
-  archivedReason,
-}: {
-  archivedAt?: string;
-  archivedReason?: string;
-}) {
-  return (
-    <div className="rounded-[1.4rem] border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100">
-      <p className="font-semibold uppercase tracking-[0.2em]">Archived lane</p>
-      <p className="mt-2 leading-7">
-        Archived {formatDate(archivedAt ?? new Date().toISOString())}.
-        {archivedReason ? ` Reason: ${archivedReason}.` : ""}
-      </p>
-      <p className="mt-2 leading-7">{ARCHIVED_WORKFLOW_MESSAGE}</p>
-    </div>
-  );
-}
-
-function WorkflowLockNotice() {
-  return (
-    <div className="rounded-[1.4rem] border border-amber-400/20 bg-amber-500/5 p-4 text-sm leading-7 text-amber-100">
-      {ARCHIVED_WORKFLOW_MESSAGE}
-    </div>
-  );
-}
-
 export default async function ProductPage({ params, searchParams }: PageProps) {
   const { workspace } = await requireFounderContext();
   const resolved = await params;
@@ -129,27 +101,12 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     notFound();
   }
 
+  const viewModel = buildProductPageViewModel(bundle);
   const github = getIntegration(bundle.integrations, "github", productId);
   const gcp = getIntegration(bundle.integrations, "gcp", productId);
   const stripe = getIntegration(bundle.integrations, "stripe", productId);
   const resend = getIntegration(bundle.integrations, "resend", productId);
-  const latestRevenue = bundle.revenueSnapshots.sort((a, b) => b.syncedAt.localeCompare(a.syncedAt))[0];
-  const githubSummary = bundle.opsHealth.providers.find((provider) => provider.provider === "github");
-  const gcpSummary = bundle.opsHealth.providers.find((provider) => provider.provider === "gcp");
-  const defaultTemplateId =
-    bundle.product.templateId ?? bundle.availableTemplates[0]?.id ?? "";
-  const touchpointsByLead = new Map(
-    bundle.leads.map((lead) => [
-      lead.id,
-      bundle.touchpoints.filter((touchpoint) => touchpoint.leadId === lead.id),
-    ]),
-  );
-  const leadOptions = bundle.leads.map((lead) => ({
-    id: lead.id,
-    label: `${lead.name} / ${lead.company}`,
-  }));
-  const targetReleaseDateValue = bundle.buildSheet.targetReleaseAt?.slice(0, 10) ?? "";
-  const isArchived = bundle.workflowLocked;
+  const { defaultTemplateId, gcpSummary, githubSummary, isArchived, latestRevenue, leadOptions, targetReleaseDateValue, touchpointsByLead } = viewModel;
 
   return (
     <div className="space-y-8">

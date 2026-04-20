@@ -2,13 +2,12 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getAuthModeInfoMock, getPublicPricingDataMock, getSignupIntentByIdMock, redirectMock } =
-  vi.hoisted(() => ({
-    getAuthModeInfoMock: vi.fn(),
-    getPublicPricingDataMock: vi.fn(),
-    getSignupIntentByIdMock: vi.fn(),
-    redirectMock: vi.fn(),
-  }));
+import type { PublicFunnelState } from "@/lib/server/funnel";
+
+const { getPublicFunnelStateMock, redirectMock } = vi.hoisted(() => ({
+  getPublicFunnelStateMock: vi.fn(),
+  redirectMock: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   redirect: redirectMock,
@@ -34,41 +33,112 @@ vi.mock("@/components/firebase-login-panel", () => ({
   FirebaseLoginPanel: () => <div>Firebase Panel</div>,
 }));
 
-vi.mock("@/lib/server/auth-mode", () => ({
-  getAuthModeInfo: getAuthModeInfoMock,
-}));
-
-vi.mock("@/lib/server/services", () => ({
-  getPublicPricingData: getPublicPricingDataMock,
-  getSignupIntentById: getSignupIntentByIdMock,
+vi.mock("@/lib/server/funnel", () => ({
+  getPublicFunnelState: getPublicFunnelStateMock,
 }));
 
 import SignupPage from "./page";
 
+function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
+  return {
+    activationDetail: "Firebase activation is ready for self-serve workspace provisioning.",
+    activationReady: true,
+    auth: {
+      firebaseEnabled: true,
+      firebaseTestMode: false,
+      inviteTokenEnabled: true,
+      firebaseClientConfigured: true,
+      firebaseAdminConfigured: true,
+      firebaseProjectId: "demo-project",
+      firebaseError: null,
+    },
+    availabilityMode: "signup_intent",
+    checkoutVisible: false,
+    flags: {
+      inviteOnlyBeta: true,
+      publicWaitlist: true,
+      publicSignupEnabled: true,
+      selfServeProvisioningEnabled: false,
+      checkoutEnabled: false,
+      platformBillingEnabled: false,
+      proAiEnabled: false,
+    },
+    founder: {
+      loggedIn: false,
+      subscriptionStatus: null,
+      hasActiveSubscription: false,
+      canStartCheckout: false,
+    },
+    journeyMode: "signup_intent",
+    metrics: {
+      productCount: 0,
+      waitlistCount: 0,
+      workspaceCount: 0,
+    },
+    plans: [
+      {
+        id: "growth",
+        name: "Growth",
+        hidden: false,
+        monthlyPrice: 99,
+        annualPrice: 990,
+        features: ["Single founder workspace"],
+      },
+    ],
+    pricingAction: null,
+    pricingVisible: false,
+    primaryAction: {
+      href: "/signup",
+      label: "Start signup",
+      kind: "signup",
+    },
+    readiness: {
+      environment: "development",
+      productionSafe: true,
+      publicPlans: [],
+      publicPlanIdsMissingCheckoutPrices: [],
+      firebaseReadyForSelfServe: false,
+      checkoutReady: false,
+      automationReady: false,
+      checks: [],
+      blockingIssues: [],
+    },
+    secondaryAction: {
+      href: "/login",
+      label: "Founder login",
+      kind: "login",
+    },
+    signupAvailable: true,
+    signupIntent: null,
+    summary: {
+      eyebrow: "Guided Signup",
+      title: "Capture founder demand now, provision deliberately later.",
+      detail:
+        "Public signup is collecting the founder, workspace, and plan choice without skipping operator review.",
+      tone: "cyan",
+    },
+    waitlistOpen: true,
+    ...overrides,
+  } satisfies PublicFunnelState;
+}
+
 describe("/signup page", () => {
   beforeEach(() => {
-    getPublicPricingDataMock.mockReset();
-    getAuthModeInfoMock.mockReset();
-    getSignupIntentByIdMock.mockReset();
+    getPublicFunnelStateMock.mockReset();
     redirectMock.mockReset();
     redirectMock.mockImplementation((target: string) => {
       throw new Error(`REDIRECT:${target}`);
     });
-    getAuthModeInfoMock.mockReturnValue({
-      firebaseEnabled: false,
-      firebaseTestMode: false,
-    });
-    getSignupIntentByIdMock.mockResolvedValue(null);
   });
 
-  it("redirects to the waitlist when public signup is hidden", async () => {
-    getPublicPricingDataMock.mockResolvedValue({
-      flags: {
-        publicSignupEnabled: false,
-        selfServeProvisioningEnabled: false,
-      },
-      plans: [],
-    });
+  it("redirects to the waitlist when signup is unavailable", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(
+      buildFunnelState({
+        availabilityMode: "waitlist",
+        plans: [],
+        signupAvailable: false,
+      }),
+    );
 
     await expect(
       SignupPage({
@@ -77,23 +147,8 @@ describe("/signup page", () => {
     ).rejects.toThrow("REDIRECT:/waitlist");
   });
 
-  it("renders the signup form when public signup is enabled", async () => {
-    getPublicPricingDataMock.mockResolvedValue({
-      flags: {
-        publicSignupEnabled: true,
-        selfServeProvisioningEnabled: false,
-      },
-      plans: [
-        {
-          id: "beta-invite",
-          name: "Invite Beta",
-          hidden: true,
-          monthlyPrice: 49,
-          annualPrice: 490,
-          features: ["Single founder workspace"],
-        },
-      ],
-    });
+  it("renders the queue-based signup form when self-serve is disabled", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(buildFunnelState());
 
     const html = renderToStaticMarkup(
       await SignupPage({
@@ -107,35 +162,52 @@ describe("/signup page", () => {
   });
 
   it("renders the self-serve activation lane when provisioning is enabled", async () => {
-    getPublicPricingDataMock.mockResolvedValue({
-      flags: {
-        publicSignupEnabled: true,
-        selfServeProvisioningEnabled: true,
-      },
-      plans: [
-        {
-          id: "beta-invite",
-          name: "Invite Beta",
-          hidden: true,
-          monthlyPrice: 49,
-          annualPrice: 490,
-          features: ["Single founder workspace"],
+    getPublicFunnelStateMock.mockResolvedValue(
+      buildFunnelState({
+        activationReady: true,
+        auth: {
+          firebaseEnabled: true,
+          firebaseTestMode: false,
+          inviteTokenEnabled: true,
+          firebaseClientConfigured: true,
+          firebaseAdminConfigured: true,
+          firebaseProjectId: "demo-project",
+          firebaseError: null,
         },
-      ],
-    });
-    getAuthModeInfoMock.mockReturnValue({
-      firebaseEnabled: true,
-      firebaseTestMode: false,
-    });
-    getSignupIntentByIdMock.mockResolvedValue({
-      id: "intent-1",
-      founderName: "Founder Name",
-      email: "founder@example.com",
-      workspaceName: "Factory Lab",
-      planId: "beta-invite",
-      status: "pending_activation",
-      createdAt: "2026-04-17T00:00:00.000Z",
-    });
+        availabilityMode: "self_serve",
+        flags: {
+          inviteOnlyBeta: true,
+          publicWaitlist: true,
+          publicSignupEnabled: true,
+          selfServeProvisioningEnabled: true,
+          checkoutEnabled: false,
+          platformBillingEnabled: false,
+          proAiEnabled: false,
+        },
+        journeyMode: "self_serve",
+        primaryAction: {
+          href: "/signup",
+          label: "Create workspace",
+          kind: "signup",
+        },
+        signupIntent: {
+          id: "intent-1",
+          founderName: "Founder Name",
+          email: "founder@example.com",
+          workspaceName: "Factory Lab",
+          planId: "growth",
+          status: "pending_activation",
+          createdAt: "2026-04-17T00:00:00.000Z",
+        },
+        summary: {
+          eyebrow: "Live Self-Serve",
+          title: "Choose a lane, verify identity, and open a founder workspace.",
+          detail:
+            "Pricing, signup, and Firebase activation are aligned for self-serve founders in this environment.",
+          tone: "cyan",
+        },
+      }),
+    );
 
     const html = renderToStaticMarkup(
       await SignupPage({
@@ -149,22 +221,36 @@ describe("/signup page", () => {
   });
 
   it("shows the Firebase configuration warning when self-serve is enabled without auth", async () => {
-    getPublicPricingDataMock.mockResolvedValue({
-      flags: {
-        publicSignupEnabled: true,
-        selfServeProvisioningEnabled: true,
-      },
-      plans: [
-        {
-          id: "beta-invite",
-          name: "Invite Beta",
-          hidden: true,
-          monthlyPrice: 49,
-          annualPrice: 490,
-          features: ["Single founder workspace"],
+    getPublicFunnelStateMock.mockResolvedValue(
+      buildFunnelState({
+        activationReady: false,
+        auth: {
+          firebaseEnabled: false,
+          firebaseTestMode: false,
+          inviteTokenEnabled: true,
+          firebaseClientConfigured: false,
+          firebaseAdminConfigured: false,
+          firebaseProjectId: null,
+          firebaseError: null,
         },
-      ],
-    });
+        availabilityMode: "self_serve",
+        flags: {
+          inviteOnlyBeta: true,
+          publicWaitlist: true,
+          publicSignupEnabled: true,
+          selfServeProvisioningEnabled: true,
+          checkoutEnabled: false,
+          platformBillingEnabled: false,
+          proAiEnabled: false,
+        },
+        journeyMode: "self_serve",
+        primaryAction: {
+          href: "/signup",
+          label: "Create workspace",
+          kind: "signup",
+        },
+      }),
+    );
 
     const html = renderToStaticMarkup(
       await SignupPage({

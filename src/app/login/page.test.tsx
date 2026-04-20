@@ -4,13 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PublicFunnelState } from "@/lib/server/funnel";
 
-const { getPublicFunnelStateMock, redirectMock } = vi.hoisted(() => ({
+const { getPublicFunnelStateMock } = vi.hoisted(() => ({
   getPublicFunnelStateMock: vi.fn(),
-  redirectMock: vi.fn(),
-}));
-
-vi.mock("next/navigation", () => ({
-  redirect: redirectMock,
 }));
 
 vi.mock("next/link", () => ({
@@ -26,14 +21,18 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/lib/server/actions", () => ({
-  startPlatformCheckoutAction: vi.fn(),
+  loginAction: vi.fn(),
+}));
+
+vi.mock("@/components/firebase-login-panel", () => ({
+  FirebaseLoginPanel: () => <div>Firebase Panel</div>,
 }));
 
 vi.mock("@/lib/server/funnel", () => ({
   getPublicFunnelState: getPublicFunnelStateMock,
 }));
 
-import PricingPage from "./page";
+import LoginPage from "./page";
 
 function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
   return {
@@ -49,14 +48,14 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
       firebaseError: null,
     },
     availabilityMode: "self_serve",
-    checkoutVisible: true,
+    checkoutVisible: false,
     flags: {
       inviteOnlyBeta: true,
       publicWaitlist: true,
       publicSignupEnabled: true,
       selfServeProvisioningEnabled: true,
-      checkoutEnabled: true,
-      platformBillingEnabled: true,
+      checkoutEnabled: false,
+      platformBillingEnabled: false,
       proAiEnabled: false,
     },
     founder: {
@@ -81,12 +80,8 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
         features: ["Single founder workspace"],
       },
     ],
-    pricingAction: {
-      href: "/pricing",
-      label: "See pricing",
-      kind: "pricing",
-    },
-    pricingVisible: true,
+    pricingAction: null,
+    pricingVisible: false,
     primaryAction: {
       href: "/signup",
       label: "Create workspace",
@@ -98,7 +93,7 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
       publicPlans: [],
       publicPlanIdsMissingCheckoutPrices: [],
       firebaseReadyForSelfServe: true,
-      checkoutReady: true,
+      checkoutReady: false,
       automationReady: false,
       checks: [],
       blockingIssues: [],
@@ -122,54 +117,22 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
   } satisfies PublicFunnelState;
 }
 
-describe("/pricing page", () => {
+describe("/login page", () => {
   beforeEach(() => {
     getPublicFunnelStateMock.mockReset();
-    redirectMock.mockReset();
-    redirectMock.mockImplementation((target: string) => {
-      throw new Error(`REDIRECT:${target}`);
-    });
   });
 
-  it("redirects to home when pricing is hidden", async () => {
-    getPublicFunnelStateMock.mockResolvedValue(
-      buildFunnelState({
-        checkoutVisible: false,
-        plans: [],
-        pricingVisible: false,
-      }),
-    );
-
-    await expect(PricingPage()).rejects.toThrow("REDIRECT:/");
-  });
-
-  it("renders pricing content when pricing is visible", async () => {
+  it("renders login copy from the unified funnel state", async () => {
     getPublicFunnelStateMock.mockResolvedValue(buildFunnelState());
 
-    const html = renderToStaticMarkup(await PricingPage());
-
-    expect(html).toContain("Choose the MicroSaaS Factory lane");
-    expect(html).toContain("Growth");
-    expect(html).toContain("Create workspace");
-  });
-
-  it("renders checkout buttons for eligible founder workspaces", async () => {
-    getPublicFunnelStateMock.mockResolvedValue(
-      buildFunnelState({
-        founder: {
-          loggedIn: true,
-          workspaceId: "workspace-1",
-          workspaceName: "Factory Lab",
-          subscriptionStatus: "trial",
-          hasActiveSubscription: false,
-          canStartCheckout: true,
-        },
+    const html = renderToStaticMarkup(
+      await LoginPage({
+        searchParams: Promise.resolve({}),
       }),
     );
 
-    const html = renderToStaticMarkup(await PricingPage());
-
-    expect(html).toContain("Start monthly checkout");
-    expect(html).toContain("Start annual checkout");
+    expect(html).toContain("Sign in or reopen your founder workspace.");
+    expect(html).toContain("Create workspace");
+    expect(html).toContain("Firebase Panel");
   });
 });

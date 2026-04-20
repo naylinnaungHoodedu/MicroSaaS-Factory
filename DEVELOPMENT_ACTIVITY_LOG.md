@@ -811,3 +811,236 @@ Verification Timestamp: `2026-04-16 11:42:11 -04:00`
   - template badges and overview visibility
   - regression coverage for template creation and template application
 - The completed template system is implemented and logged in the current project folder together with its audit trail and verification results.
+
+### 13. Launch Hardening And Production Rollout Completed On April 20, 2026
+- Implemented the full launch-hardening code path for runtime readiness, admin-managed platform plans, deployment reproducibility, and production operations.
+- Fixed the TypeScript/runtime issues in:
+  - `src/lib/server/runtime-config.ts`
+  - `src/lib/server/runtime-config.test.ts`
+- Added:
+  - type-safe Stripe plan-map parsing
+  - explicit production enforcement of `FIRESTORE_PROJECT_ID`
+  - visible public-plan sorting by ascending `monthlyPrice`
+  - a test-only runtime bypass for the Playwright standalone production harness
+- Extended the admin surface and server-action layer so operators can create, edit, hide, and delete platform plans without direct Firestore edits.
+- Enforced the rollout contract that non-seed plan IDs must match configured `STRIPE_PLATFORM_PRICE_MAP_JSON` keys.
+- Expanded service-layer coverage for:
+  - platform plan CRUD
+  - public-plan sorting
+  - readiness failures when plans or runtime config are missing
+  - runtime env restoration behavior
+- Updated the Playwright harness to seed a visible public plan plus matching Stripe price-map data so browser verification follows the new rollout gating model.
+
+### 14. Verification And Regression Coverage Completed
+- Confirmed successful execution in the main workspace of:
+  - `npm run lint`
+  - `npm test`
+  - `npx tsc --noEmit --pretty false`
+  - `npm run build`
+  - `npm run test:e2e`
+- Confirmed the repository test surface now passes end to end with:
+  - `112` passing Vitest tests
+  - `9` passing Playwright end-to-end tests
+- Resolved two live regressions discovered during verification:
+  - the new production runtime assertion blocked the standalone Playwright harness until a narrow test-only bypass was introduced
+  - the public-signup browser flows needed a visible public plan before flag-gated signup or self-serve provisioning could succeed
+
+### 15. Deployment And Operations Script Hardening Completed
+- Updated and validated:
+  - `scripts/setup-cloud-run-service-account.ps1`
+  - `scripts/configure-cloud-run-runtime.ps1`
+  - `scripts/setup-cloud-scheduler.ps1`
+  - `scripts/setup-monitoring-alerts.ps1`
+  - `cloudbuild.yaml`
+  - `README.md`
+- Fixed real execution-path defects discovered during live rollout:
+  - service-account existence checks that were too optimistic
+  - Cloud Run updates that could not switch a key directly from plain env var to Secret Manager ref
+  - Cloud Scheduler update flags that were incompatible with the installed `gcloud` CLI
+  - Monitoring metric existence checks that did not behave correctly under PowerShell
+  - Cloud Build image references that failed when `$COMMIT_SHA` was empty during direct `gcloud builds submit`
+- The deployment workflow now supports explicit image tags through `_IMAGE_TAG`, which works for manual deployment as well as repeatable scripted rollout.
+
+### 16. Live Production Rollout Completed For The Current Safe Scope
+- Verified the production target:
+  - active GCP project and Cloud Run service hosting the public site
+  - production Firestore database backing live state
+- Created dedicated runtime service account for Cloud Run.
+- Granted runtime roles:
+  - `roles/datastore.user`
+  - `roles/secretmanager.secretAccessor`
+- Migrated existing live runtime secrets into Secret Manager:
+  - admin access
+  - encryption
+  - internal automation
+- Updated Cloud Run to use:
+  - explicit Firestore project configuration
+  - explicit public app URL configuration
+  - secret-backed refs for the three live runtime secrets
+  - the dedicated runtime service account
+- Enabled Cloud Scheduler and created:
+  - `microsaas-factory-validation-crm`
+  - `microsaas-factory-live-ops`
+- Created Monitoring resources:
+  - log metric `microsaas_factory_automation_problem_count`
+  - alert policy `MicroSaaS Factory automation problems`
+  - operator email notification channel
+- Submitted and completed a Cloud Build deployment using an explicit image tag.
+- Confirmed the live Cloud Run service is serving the newly deployed revision.
+
+### 17. Live Smoke Validation Completed
+- Confirmed `https://microsaasfactory.io` returned HTTP `200`.
+- Successfully executed the secured internal automation endpoints against production:
+  - `POST /api/internal/jobs/validation-crm/run`
+  - `POST /api/internal/jobs/live-ops/run`
+- Confirmed Firestore automation history persisted successfully after both runs.
+- Confirmed the latest persisted runs on April 20, 2026 completed with status `success`.
+- Confirmed both runs persisted the expected "no work due" summaries and completed without blocking errors.
+
+### 18. Remaining External Dependencies Intentionally Left Unchanged
+- Firebase production envs are still not configured on Cloud Run.
+- Stripe production envs are still not configured on Cloud Run.
+- Public launch tiers were not invented or hardcoded into production; they still require operator-supplied real pricing content.
+- Public self-serve, platform billing visibility, and checkout flags were intentionally not enabled because the required Firebase, Stripe, and pricing inputs are not yet available.
+- The repository and production environment are now prepared for that final enablement step once those external inputs are provided.
+
+### 19. Service-Layer Domain Split Completed
+- Reworked the server service entrypoint so `src/lib/server/services.ts` now acts as a facade rather than the primary implementation body.
+- Copied the prior implementation into:
+  - `src/lib/server/services-core.ts`
+- Added grouped domain re-export modules under:
+  - `src/lib/server/service-domains/activity.ts`
+  - `src/lib/server/service-domains/admin.ts`
+  - `src/lib/server/service-domains/automation.ts`
+  - `src/lib/server/service-domains/billing.ts`
+  - `src/lib/server/service-domains/integrations.ts`
+  - `src/lib/server/service-domains/onboarding.ts`
+  - `src/lib/server/service-domains/public.ts`
+  - `src/lib/server/service-domains/workspace.ts`
+- Preserved the existing public import contract so current routes, server actions, and tests continued to import from `@/lib/server/services` without route breakage.
+- This completed the first architecture step of the master refactor plan while avoiding any schema or API contract changes.
+
+### 20. Unified Public Funnel State Model Completed
+- Added `src/lib/server/funnel.ts` as the single server-side source of truth for the public acquisition and activation funnel.
+- Implemented typed derivation for:
+  - public availability mode
+  - journey mode
+  - primary CTA
+  - secondary CTA
+  - pricing visibility
+  - checkout visibility
+  - activation readiness
+  - founder-session-aware return-path behavior
+- The funnel model now computes state from:
+  - feature flags
+  - visible public plans
+  - runtime readiness
+  - Firebase auth availability
+  - founder session presence
+  - founder subscription state
+  - optional signup intent context
+- This removed prior duplication where landing, pricing, signup, login, and waitlist each derived overlapping but slightly different public access rules.
+
+### 21. Public Surface Rewire Completed
+- Reworked the following routes to render from the shared funnel state instead of ad hoc local logic:
+  - `src/app/page.tsx`
+  - `src/app/pricing/page.tsx`
+  - `src/app/signup/page.tsx`
+  - `src/app/login/page.tsx`
+  - `src/app/waitlist/page.tsx`
+- Added reusable public presentation primitives in:
+  - `src/components/public-ui.tsx`
+- Introduced:
+  - shared hero treatment
+  - unified CTA rendering
+  - journey rail visualization
+  - consistent environment-mode messaging
+- Result:
+  - landing, pricing, signup, waitlist, and login now present one coherent acquisition and activation narrative
+  - the next allowed step is now aligned across every public entrypoint
+  - activation-readiness messaging is now derived once and rendered consistently
+
+### 22. Dashboard Extraction Completed
+- Added dashboard-specific view-model logic in:
+  - `src/lib/server/dashboard-view-model.ts`
+- Extracted major dashboard rendering blocks into:
+  - `src/components/dashboard-sections.tsx`
+- Refactored `src/app/app/page.tsx` into a route shell that composes:
+  - alerts
+  - portfolio summary
+  - billing section
+  - factory mode summary
+  - activity timeline
+  - CRM summary
+  - product creation section
+  - active product listing
+  - archived product listing
+- This materially reduced inline rendering density in the founder dashboard route while preserving the existing user-facing feature set.
+
+### 23. Admin Surface Extraction Completed
+- Added admin-specific view-model logic in:
+  - `src/lib/server/admin-view-model.ts`
+- Extracted admin surface sections into:
+  - `src/components/admin-sections.tsx`
+- Rebuilt `src/app/admin/page.tsx` as a route shell over dedicated components for:
+  - login gate
+  - runtime and funnel console
+  - plan management
+  - automation management
+  - invite / signup-intent / waitlist queues
+- Extended the admin summary so operators now see the live derived public funnel posture beside runtime readiness and auth state.
+
+### 24. Product Route Extraction Support Completed
+- Added product-page view-model support in:
+  - `src/lib/server/product-page-view-model.ts`
+- Added shared shell components in:
+  - `src/components/product-page-shell.tsx`
+- Moved archived-lane shell rendering helpers out of the product route file.
+- Centralized derived product-page state such as:
+  - latest revenue snapshot
+  - default template ID
+  - lead options
+  - touchpoints-by-lead mapping
+  - archived workflow lock state
+  - GitHub and GCP summary selection
+- Reduced some route-level orchestration density in `src/app/app/products/[productId]/[[...section]]/page.tsx` without changing the route surface or section behavior.
+
+### 25. Public Funnel Regression Coverage Completed
+- Added or rewrote test coverage in:
+  - `src/lib/server/funnel.test.ts`
+  - `src/app/page.test.tsx`
+  - `src/app/login/page.test.tsx`
+  - `src/app/pricing/page.test.tsx`
+  - `src/app/signup/page.test.tsx`
+  - `src/app/waitlist/page.test.tsx`
+- Added explicit verification for:
+  - waitlist-only funnel mode
+  - signup-intent mode
+  - self-serve-ready mode
+  - pricing-visible but checkout-hidden mode
+  - checkout-eligible founder mode
+  - returning-founder mode
+- Reworked page tests so route rendering is now validated against the shared funnel contract rather than mocked combinations of separate service calls.
+
+### 26. Verification Completed For The Refactor Pass
+- Confirmed successful execution in the working repository of:
+  - `npm test`
+  - `npm run lint`
+  - `npm run build`
+- Confirmed the Vitest suite now passes with:
+  - `121` passing tests
+- Confirmed ESLint passes cleanly after the route and component extraction work.
+- Confirmed the Next.js production build completes successfully after:
+  - service facade split
+  - funnel-state introduction
+  - public-page rewiring
+  - dashboard/admin extraction
+
+### 27. Current Codebase Status After This Update
+- The repository now contains a materially cleaner internal architecture while preserving the existing route and persistence contract.
+- The public acquisition funnel is now modeled centrally instead of being scattered across page-specific logic.
+- The founder dashboard and admin console are now sectioned into focused components with dedicated view-model support.
+- The codebase is now in a stronger position for the next implementation passes:
+  - deeper product-route extraction
+  - additional self-serve onboarding refinement
+  - further operator-facing runtime and rollout clarity

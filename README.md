@@ -131,6 +131,7 @@ The app starts at `http://localhost:3000` with the local JSON backend writing to
 | `ADMIN_ACCESS_KEY` | Secures the admin console (`/admin?key=...`) |
 | `MICROSAAS_FACTORY_ENCRYPTION_KEY` | AES key for encrypting integration secrets |
 | `MICROSAAS_FACTORY_DB_BACKEND` | `local` (dev) or `firestore` (production) |
+| `MICROSAAS_FACTORY_APP_URL` | Absolute public app URL used for Stripe Checkout returns and scheduler setup |
 
 ### Optional Variables
 
@@ -140,9 +141,12 @@ The app starts at `http://localhost:3000` with the local JSON backend writing to
 | `MICROSAAS_FACTORY_LOCAL_DB_FILE` | Override local DB file path |
 | `FIRESTORE_SERVICE_ACCOUNT_JSON` | Firestore production credentials |
 | `NEXT_PUBLIC_FIREBASE_*` | When Firebase Auth is enabled |
-| `FIREBASE_SERVICE_ACCOUNT_*` | When Firebase Auth is enabled |
+| `FIREBASE_SERVICE_ACCOUNT_*` | Canonical Firebase Admin env names for self-serve signup |
+| `FIREBASE_ADMIN_CREDENTIALS_JSON` / legacy `FIREBASE_*` | Backward-compatible Firebase Admin aliases |
 | `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` | GitHub App integration |
-| `STRIPE_RESTRICTED_KEY` | Stripe billing integration |
+| `STRIPE_PLATFORM_SECRET_KEY` | Platform Stripe Checkout session creation |
+| `STRIPE_PLATFORM_WEBHOOK_SECRET` | Stripe platform webhook verification |
+| `STRIPE_PLATFORM_PRICE_MAP_JSON` | Public plan -> Stripe price ID mapping |
 | `GCP_SERVICE_ACCOUNT_JSON` | GCP Cloud Run/Build integration |
 | `VERTEX_AI_*` | AI generation features |
 
@@ -164,7 +168,7 @@ npm run test:e2e
 npm run test:all
 ```
 
-**Current status**: 97/97 tests passing across 17 test files.
+**Current status**: 121/121 tests passing in the current Vitest suite.
 
 The Playwright harness runs against the standalone production build and uses an isolated database file via `MICROSAAS_FACTORY_LOCAL_DB_FILE`, so it does not mutate default development state.
 
@@ -179,10 +183,19 @@ The Playwright harness runs against the standalone production build and uses an 
 docker build -t microsaas-factory .
 
 # Deploy to Cloud Run (via Cloud Build)
-gcloud builds submit --config=cloudbuild.yaml
+gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE_TAG=deploy-YYYYMMDD-1
 ```
 
 ### Pre-Deployment Checklist
+
+Additional production rollout items:
+
+- Set `MICROSAAS_FACTORY_APP_URL` to the production hostname.
+- Set `FIRESTORE_PROJECT_ID` explicitly in production, even when the Cloud Run project is already known through ADC.
+- For self-serve signup, provide the full Firebase client suite plus `FIREBASE_SERVICE_ACCOUNT_*`.
+- For platform billing, provide `STRIPE_PLATFORM_SECRET_KEY`, `STRIPE_PLATFORM_WEBHOOK_SECRET`, and `STRIPE_PLATFORM_PRICE_MAP_JSON`.
+- Move runtime secrets to Secret Manager-backed Cloud Run refs instead of plain env vars.
+- Run the scheduler and monitoring scripts in `scripts/` after deployment.
 
 1. ✅ Create an Artifact Registry repository for the container image
 2. ✅ Set `MICROSAAS_FACTORY_DB_BACKEND=firestore` with valid Firestore credentials
@@ -199,6 +212,47 @@ gcloud builds submit --config=cloudbuild.yaml
 | **Cloud Build** | CI/CD pipeline |
 | **Artifact Registry** | Docker image storage |
 | **Firebase Auth** | User authentication (optional) |
+| **Cloud Scheduler** | Triggers validation CRM and live ops automation |
+| **Cloud Monitoring** | Alerts on failed or partial automation runs |
+
+### Reproducible Runtime Config
+
+Provision the dedicated runtime service account:
+
+```powershell
+pwsh ./scripts/setup-cloud-run-service-account.ps1 `
+  -ProjectId YOUR_GCP_PROJECT `
+  -ServiceAccountName microsaas-factory-runner
+```
+
+Then update Cloud Run with the required plain env vars and Secret Manager refs:
+
+```powershell
+pwsh ./scripts/configure-cloud-run-runtime.ps1 `
+  -ProjectId YOUR_GCP_PROJECT `
+  -AppUrl https://microsaasfactory.io `
+  -FirestoreProjectId YOUR_GCP_PROJECT `
+  -RuntimeServiceAccountEmail microsaas-factory-runner@YOUR_GCP_PROJECT.iam.gserviceaccount.com `
+  -StripePlatformPriceMapJson '{"growth":{"monthly":"price_monthly_123","annual":"price_annual_123"}}'
+```
+
+The runtime script always sets:
+
+- `MICROSAAS_FACTORY_DB_BACKEND=firestore`
+- `FIRESTORE_PROJECT_ID`
+- `FIRESTORE_DATABASE_ID`
+- `MICROSAAS_FACTORY_FIRESTORE_COLLECTION`
+- `MICROSAAS_FACTORY_APP_URL`
+
+And it supports Secret Manager refs for:
+
+- `ADMIN_ACCESS_KEY`
+- `MICROSAAS_FACTORY_ENCRYPTION_KEY`
+- `INTERNAL_AUTOMATION_KEY`
+- `STRIPE_PLATFORM_SECRET_KEY`
+- `STRIPE_PLATFORM_WEBHOOK_SECRET`
+- `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY`
+- Optional GitHub / Google service-account private credentials
 
 ---
 
@@ -215,6 +269,40 @@ The platform behavior is controlled by global feature flags managed via the admi
 | `checkoutEnabled` | `false` | Enable Stripe checkout flows |
 | `platformBillingEnabled` | `false` | Show pricing plans |
 | `proAiEnabled` | `false` | Enable Gemini Pro model (vs Flash only) |
+
+Production guardrails now reject unsafe flag transitions. Self-serve provisioning requires a visible public plan plus complete Firebase config, and Checkout requires platform billing visibility plus Stripe Checkout readiness.
+
+---
+
+## Scheduler and Monitoring
+
+After Cloud Run is live, provision the recurring automation jobs:
+
+```powershell
+pwsh ./scripts/setup-cloud-scheduler.ps1 `
+  -ProjectId YOUR_GCP_PROJECT `
+  -ServiceUrl https://microsaasfactory.io `
+  -AutomationKey YOUR_INTERNAL_AUTOMATION_KEY `
+  -Region us-central1
+```
+
+This creates:
+
+- `POST /api/internal/jobs/validation-crm/run` every 4 hours
+- `POST /api/internal/jobs/live-ops/run` every 6 hours
+
+Then create the log-based metric and alert policy:
+
+```powershell
+pwsh ./scripts/setup-monitoring-alerts.ps1 `
+  -ProjectId YOUR_GCP_PROJECT `
+  -NotificationEmail ops@example.com `
+  -Region us-central1
+```
+
+If you already have a Monitoring notification channel, you can still pass `-NotificationChannel` directly.
+
+See `scripts/cloud-ops-runbook.md` for the full operating runbook.
 
 ---
 

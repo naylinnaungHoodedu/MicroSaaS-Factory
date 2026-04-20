@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 import { FirebaseLoginPanel } from "@/components/firebase-login-panel";
+import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
-import { getAuthModeInfo } from "@/lib/server/auth-mode";
 import { loginAction } from "@/lib/server/actions";
-import { getPublicPricingData } from "@/lib/server/services";
+import { getPublicFunnelState } from "@/lib/server/funnel";
 
 export default async function LoginPage({
   searchParams,
@@ -12,12 +12,36 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const resolved = await searchParams;
-  const auth = getAuthModeInfo();
-  const { flags } = await getPublicPricingData();
-  const selfServeEnabled = flags.publicSignupEnabled && flags.selfServeProvisioningEnabled;
+  const funnel = await getPublicFunnelState();
+  const selfServeEnabled = funnel.availabilityMode === "self_serve";
 
   return (
     <main className="page-shell py-10">
+      <PublicHeroPanel
+        state={funnel}
+        auxiliary={
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Login posture
+              </p>
+              <p className="mt-3 text-lg font-semibold text-white">
+                {funnel.auth.firebaseEnabled
+                  ? "Invite tokens and Firebase both remain available."
+                  : "Invite tokens remain the active login contract."}
+              </p>
+            </div>
+            <p className="leading-7 text-slate-300">
+              {selfServeEnabled
+                ? "Self-serve founders can return here after workspace provisioning, while existing invite links still remain valid."
+                : "The login page stays aligned with the invite-beta workflow until public self-serve activation is truly ready."}
+            </p>
+          </div>
+        }
+      >
+        <PublicJourneyRail state={funnel} />
+      </PublicHeroPanel>
+
       <Section
         eyebrow="Founder Access"
         title={selfServeEnabled ? "Sign in or reopen your founder workspace." : "Sign in with your beta invite."}
@@ -34,39 +58,45 @@ export default async function LoginPage({
         ) : null}
         <div
           className={
-            auth.firebaseEnabled
+            funnel.auth.firebaseEnabled
               ? "grid gap-8 lg:grid-cols-[0.75fr_1fr_1fr]"
               : "grid gap-8 lg:grid-cols-[0.8fr_1fr]"
           }
         >
-          <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-6 text-sm leading-7 text-slate-300">
-            <p className="text-xs uppercase tracking-[0.24em] text-amber-200/80">Authentication Mode</p>
-            <p className="mt-3">
-              {selfServeEnabled
-                ? "Invite and self-serve founder access are both available. Firebase is the primary path for self-serve provisioning and returning founder login."
-                : "Invite-only founder access is enabled. Workspace creation still requires an issued invite, even when Firebase sign-in is active."}
-            </p>
-            <p className="mt-3">
-              {auth.firebaseEnabled
+          <PublicInfoCard
+            eyebrow="Authentication Mode"
+            title={
+              selfServeEnabled
+                ? "Invite access and self-serve founder return paths now share one login surface."
+                : "Invite-based access remains the current founder contract."
+            }
+            detail={
+              selfServeEnabled
+                ? "Firebase is the primary path for self-serve provisioning and repeat founder access, while manual invite-token entry still remains available."
+                : "Workspace creation still requires an issued invite, even when Firebase sign-in is active in this environment."
+            }
+          >
+            <p className="text-sm leading-7 text-slate-300">
+              {funnel.auth.firebaseEnabled
                 ? selfServeEnabled
-                  ? "Firebase Google and email-link sign-in are available for both self-serve and invite-based founders. Direct invite links remain the recommended path when an invite already exists."
-                  : "Firebase Google and email-link sign-in are available for founders whose invite email has already been issued. Direct invite links remain the recommended path."
+                  ? "Firebase Google and email-link sign-in are available for both self-serve and invite-based founders."
+                  : "Firebase Google and email-link sign-in are available for already-provisioned founders."
                 : "Firebase sign-in is not configured in this environment, so invite-token access remains the only founder login path."}
             </p>
-            {auth.firebaseError ? (
-              <p className="mt-3 text-amber-100">
-                Firebase is partially configured but not ready: {auth.firebaseError}
+            {funnel.auth.firebaseError ? (
+              <p className="mt-3 text-sm leading-7 text-amber-100">
+                Firebase is partially configured but not ready: {funnel.auth.firebaseError}
               </p>
             ) : null}
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href={selfServeEnabled ? "/signup" : "/waitlist"} className="button-primary">
-                {selfServeEnabled ? "Create workspace" : "Request invite"}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href={funnel.primaryAction.href} className="button-primary">
+                {funnel.primaryAction.label}
               </Link>
               <Link href="/" className="button-secondary">
                 Back home
               </Link>
             </div>
-          </div>
+          </PublicInfoCard>
 
           <form action={loginAction} className="space-y-5 rounded-[1.5rem] border border-white/10 bg-white/5 p-6">
             <div>
@@ -89,10 +119,10 @@ export default async function LoginPage({
             </button>
           </form>
 
-          {auth.firebaseEnabled ? (
+          {funnel.auth.firebaseEnabled ? (
             <FirebaseLoginPanel
-              enabled={auth.firebaseEnabled}
-              testMode={Boolean(auth.firebaseTestMode)}
+              enabled={funnel.auth.firebaseEnabled}
+              testMode={Boolean(funnel.auth.firebaseTestMode)}
               redirectTo="/login"
               mode="login"
             />

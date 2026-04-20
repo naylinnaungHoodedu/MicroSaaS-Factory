@@ -1,5 +1,6 @@
 import { createSign, createHmac } from "node:crypto";
 import { secureCompare } from "@/lib/server/crypto";
+import { getMicrosaasFactoryAppUrl, type BillingInterval } from "@/lib/server/runtime-config";
 
 type GithubSyncInput = {
   owner: string;
@@ -23,6 +24,14 @@ type StripeSyncInput = {
 type ResendSyncInput = {
   apiKey: string;
   senderEmail: string;
+};
+
+type StripePlatformCheckoutInput = {
+  priceId: string;
+  customerEmail: string;
+  workspaceId: string;
+  planId: string;
+  billingInterval: BillingInterval;
 };
 
 type GoogleServiceAccount = {
@@ -357,6 +366,69 @@ export async function syncStripeConnection(input: StripeSyncInput) {
       productCount: products.data.length,
     },
     secret: input.secretKey,
+  };
+}
+
+export async function createStripePlatformCheckoutSession(
+  input: StripePlatformCheckoutInput,
+) {
+  const secretKey = process.env.STRIPE_PLATFORM_SECRET_KEY?.trim();
+  const appUrl = getMicrosaasFactoryAppUrl();
+
+  if (!secretKey) {
+    throw new Error("STRIPE_PLATFORM_SECRET_KEY is not configured.");
+  }
+
+  if (!appUrl) {
+    throw new Error("MICROSAAS_FACTORY_APP_URL is not configured.");
+  }
+
+  const body = new URLSearchParams();
+  body.set("mode", "subscription");
+  body.set("success_url", `${appUrl}/app?billing=success`);
+  body.set("cancel_url", `${appUrl}/pricing?billing=cancelled`);
+  body.set("client_reference_id", input.workspaceId);
+  body.set("customer_email", input.customerEmail);
+  body.set("allow_promotion_codes", "true");
+  body.set("line_items[0][price]", input.priceId);
+  body.set("line_items[0][quantity]", "1");
+  body.set("metadata[workspaceId]", input.workspaceId);
+  body.set("metadata[planId]", input.planId);
+  body.set("metadata[billingInterval]", input.billingInterval);
+  body.set("subscription_data[metadata][workspaceId]", input.workspaceId);
+  body.set("subscription_data[metadata][planId]", input.planId);
+  body.set("subscription_data[metadata][billingInterval]", input.billingInterval);
+
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Stripe Checkout session creation failed.");
+  }
+
+  const session = (await response.json()) as {
+    id?: string;
+    url?: string;
+    customer?: string | null;
+    subscription?: string | null;
+  };
+
+  if (!session.id || !session.url) {
+    throw new Error("Stripe Checkout did not return a redirect URL.");
+  }
+
+  return {
+    id: session.id,
+    url: session.url,
+    customerId: session.customer ?? undefined,
+    subscriptionId: session.subscription ?? undefined,
   };
 }
 

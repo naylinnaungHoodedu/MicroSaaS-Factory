@@ -1,78 +1,81 @@
 import Link from "next/link";
 
+import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section, StatCard } from "@/components/ui";
-import { listPublicMetrics } from "@/lib/server/services";
+import { getPublicFunnelState } from "@/lib/server/funnel";
 
 export default async function Home() {
-  const metrics = await listPublicMetrics();
-  const signupCta =
-    metrics.featureFlags.publicSignupEnabled && metrics.featureFlags.selfServeProvisioningEnabled
-      ? "Create workspace"
-      : metrics.featureFlags.publicSignupEnabled
-        ? "Start signup"
-        : "Request invite";
+  const funnel = await getPublicFunnelState();
 
   return (
     <main className="pb-16">
       <div className="page-shell pt-8">
-        <header className="flex flex-col gap-6 rounded-[2rem] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] px-6 py-8 shadow-2xl shadow-black/20 md:px-10 md:py-12">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-cyan-300/80">
-                Invite Beta
-              </p>
-              <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
-                Operating system for solo founders building on GitHub and GCP.
-              </h1>
+        <PublicHeroPanel
+          state={funnel}
+          auxiliary={
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Operating posture
+                </p>
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {funnel.availabilityMode === "self_serve"
+                    ? funnel.activationReady
+                      ? "Self-serve activation is live"
+                      : "Self-serve is visible but not fully activation-ready"
+                    : funnel.availabilityMode === "signup_intent"
+                      ? "Public signup records intent behind operator review"
+                      : "Invite-only beta remains active"}
+                </p>
+              </div>
+              <p className="leading-7 text-slate-300">{funnel.activationDetail}</p>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Founder login
+                </p>
+                <p className="mt-2 text-sm leading-7 text-slate-300">
+                  {funnel.auth.firebaseEnabled
+                    ? "Invite access and Firebase sign-in are both available in this environment."
+                    : "Invite-token access remains the active founder path until Firebase is fully configured."}
+                </p>
+              </div>
             </div>
-            <div className="flex gap-3">
-              {metrics.featureFlags.platformBillingEnabled ? (
-                <Link href="/pricing" className="button-secondary">
-                  Pricing
-                </Link>
-              ) : null}
-              <Link href="/login" className="button-secondary">
-                Founder login
-              </Link>
-              <Link
-                href={metrics.featureFlags.publicSignupEnabled ? "/signup" : "/waitlist"}
-                className="button-primary"
-              >
-                {signupCta}
-              </Link>
-            </div>
-          </div>
-          <p className="max-w-3xl text-base leading-8 text-slate-300 md:text-lg">
+          }
+        >
+          <p className="max-w-4xl text-base leading-8 text-slate-300 md:text-lg">
             MicroSaaS Factory turns the document strategy into a live founder workflow:
             research, validation, one-page specing, GitHub and Cloud Run ops, Stripe
             readiness, onboarding sequence management, and a hard launch gate before a
-            product enters maintenance mode. Invite access remains available, and public
-            self-serve provisioning can be opened independently when the operator is ready.
+            product enters maintenance mode.
           </p>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
             <StatCard
               label="Workspaces"
-              value={String(metrics.workspaceCount)}
+              value={String(funnel.metrics.workspaceCount)}
               detail="Single-owner invite-beta workspaces"
             />
             <StatCard
               label="Tracked products"
-              value={String(metrics.productCount)}
+              value={String(funnel.metrics.productCount)}
               detail="Research-to-launch pipelines already in the system"
             />
             <StatCard
               label="Waitlist"
-              value={String(metrics.waitlistCount)}
+              value={String(funnel.metrics.waitlistCount)}
               detail="Founders queued for the beta"
             />
           </div>
-        </header>
+        </PublicHeroPanel>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+        <div className="mt-8">
+          <PublicJourneyRail state={funnel} />
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <Section
-            eyebrow="What V1 Covers"
-            title="One product, one workspace, one accountable operator."
-            description="The beta is intentionally narrow: no multi-team collaboration, no public checkout, and no multi-cloud sprawl. The application is optimized for a solo technical founder who wants disciplined throughput instead of another dashboard."
+            eyebrow="Workflow Spine"
+            title="One operating rhythm from market signal to maintenance mode."
+            description="The product stays narrow on purpose: a solo technical founder gets disciplined throughput instead of a generic startup dashboard."
           >
             <div className="grid gap-4 md:grid-cols-2">
               {[
@@ -90,27 +93,43 @@ export default async function Home() {
             </div>
           </Section>
 
-          <Section
-            eyebrow="Beta Rules"
-            title="Invite-only by design."
-            description="Beta access is controlled so founders can wire real GitHub, GCP, Stripe, and Resend credentials without public self-serve risk."
-          >
-            <ul className="space-y-4 text-sm leading-7 text-slate-300">
-              <li>
-                Public waitlist is open. Public signup can operate as queue-only or real
-                self-serve provisioning depending on operator flags.
-              </li>
-              <li>
-                Founders authenticate through invite-token access, with optional Firebase sign-in
-                when the operator has configured it.
-              </li>
-              <li>Platform billing objects exist internally but remain hidden until enabled.</li>
-              <li>Pro-model generation is feature-flagged separately from the default Flash path.</li>
-            </ul>
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              Auth mode: {metrics.auth.firebaseEnabled ? "Invite beta + Firebase" : "Invite token only"}
-            </div>
-          </Section>
+          <div className="space-y-6">
+            <PublicInfoCard
+              eyebrow="Current Mode"
+              title="The public funnel only opens as far as the operator has actually enabled it."
+              detail="Landing, pricing, signup, waitlist, and founder login now read from the same public funnel contract, so the next step stays consistent across the entire surface."
+            >
+              <ul className="space-y-3 text-sm leading-7 text-slate-300">
+                <li>
+                  Public pricing is {funnel.pricingVisible ? "visible" : "hidden"} in this
+                  environment.
+                </li>
+                <li>
+                  Checkout is {funnel.checkoutVisible ? "available when workspace status allows it" : "not visible yet"}.
+                </li>
+                <li>
+                  Activation is {funnel.activationReady ? "ready for self-serve founders" : "still controlled by environment readiness"}.
+                </li>
+              </ul>
+            </PublicInfoCard>
+
+            <PublicInfoCard
+              eyebrow="Why It Is Narrow"
+              title="The beta is optimized for one accountable founder, not team sprawl."
+              detail="MicroSaaS Factory assumes one founder, one workspace, and product lanes that must earn the right to stop consuming attention."
+            >
+              <div className="flex flex-wrap gap-3">
+                <Link href="/login" className="button-secondary">
+                  Founder login
+                </Link>
+                {funnel.pricingVisible ? (
+                  <Link href="/pricing" className="button-secondary">
+                    Review pricing
+                  </Link>
+                ) : null}
+              </div>
+            </PublicInfoCard>
+          </div>
         </div>
       </div>
     </main>

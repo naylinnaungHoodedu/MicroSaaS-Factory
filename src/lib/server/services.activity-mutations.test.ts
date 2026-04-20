@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types";
 
 const {
+  createStripePlatformCheckoutSessionMock,
   generateTextMock,
   readDatabaseMock,
   sendResendTestEmailMock,
@@ -21,6 +22,7 @@ const {
   syncResendConnectionMock,
   syncStripeConnectionMock,
 } = vi.hoisted(() => ({
+  createStripePlatformCheckoutSessionMock: vi.fn(),
   generateTextMock: vi.fn(),
   readDatabaseMock: vi.fn(),
   sendResendTestEmailMock: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock("@/lib/server/db", () => ({
 }));
 
 vi.mock("@/lib/server/integrations", () => ({
+  createStripePlatformCheckoutSession: createStripePlatformCheckoutSessionMock,
   sendResendTestEmail: sendResendTestEmailMock,
   syncGcpConnection: syncGcpConnectionMock,
   syncGithubConnection: syncGithubConnectionMock,
@@ -57,17 +60,21 @@ import {
   cloneProduct,
   completeInviteWithFirebaseIdentity,
   connectGithub,
+  createPlatformCheckoutSession,
   createInviteFromSignupIntent,
   createSignupIntent,
+  deletePlatformPlan,
   createValidationSession,
   createValidationTask,
   createProduct,
   evaluateLaunchGate,
   generateOpportunityReadout,
   getAdminOverview,
+  getPublicPricingData,
   getProductBundle,
   getWorkspaceCrmBundle,
   getWorkspaceDashboard,
+  handleStripePlatformWebhook,
   loginWithInvite,
   logValidationTouchpoint,
   refreshGcpConnection,
@@ -78,6 +85,7 @@ import {
   runLiveOpsAutomation,
   runValidationCrmJob,
   saveBuildSheet,
+  savePlatformPlan,
   saveSpecDocument,
   sendOnboardingTestEmail,
   updateProductDetails,
@@ -92,7 +100,7 @@ function makeWorkspace() {
     name: "Factory Lab",
     ownerUserId: "user-1",
     createdAt: "2026-04-15T12:00:00.000Z",
-    featureFlags: DEFAULT_FEATURE_FLAGS,
+    featureFlags: { ...DEFAULT_FEATURE_FLAGS },
   };
 }
 
@@ -265,7 +273,7 @@ function makeDatabase(): DatabaseShape {
     platformSubscriptions: [],
     activityEvents: [],
     automationRuns: [],
-    globalFeatureFlags: DEFAULT_FEATURE_FLAGS,
+    globalFeatureFlags: { ...DEFAULT_FEATURE_FLAGS },
   };
 }
 
@@ -274,6 +282,7 @@ describe("activity mutation logging", () => {
 
   beforeEach(() => {
     database = makeDatabase();
+    createStripePlatformCheckoutSessionMock.mockReset();
     generateTextMock.mockReset();
     readDatabaseMock.mockReset();
     sendResendTestEmailMock.mockReset();
@@ -282,6 +291,10 @@ describe("activity mutation logging", () => {
     syncGithubConnectionMock.mockReset();
     syncResendConnectionMock.mockReset();
     syncStripeConnectionMock.mockReset();
+    delete process.env.MICROSAAS_FACTORY_APP_URL;
+    delete process.env.STRIPE_PLATFORM_SECRET_KEY;
+    delete process.env.STRIPE_PLATFORM_WEBHOOK_SECRET;
+    delete process.env.STRIPE_PLATFORM_PRICE_MAP_JSON;
 
     readDatabaseMock.mockImplementation(async () => database);
     updateDatabaseMock.mockImplementation(async (mutator: (database: DatabaseShape) => unknown) =>
@@ -289,6 +302,10 @@ describe("activity mutation logging", () => {
     );
     generateTextMock.mockResolvedValue("AI recommendation");
     sendResendTestEmailMock.mockResolvedValue({ id: "email-1" });
+    createStripePlatformCheckoutSessionMock.mockResolvedValue({
+      id: "cs_test_123",
+      url: "https://checkout.stripe.com/pay/cs_test_123",
+    });
     syncGithubConnectionMock.mockImplementation(
       async ({ owner, repo }: { owner: string; repo: string }) => ({
         metadata: {
@@ -1596,7 +1613,7 @@ describe("activity mutation logging", () => {
       {
         id: "beta-invite",
         name: "Invite Beta",
-        hidden: true,
+        hidden: false,
         monthlyPrice: 49,
         annualPrice: 490,
         features: ["Single founder"],
@@ -1744,6 +1761,235 @@ describe("activity mutation logging", () => {
       planId: "growth",
       status: "trial",
       source: "self-serve",
+    });
+  });
+
+  it("creates and updates platform plans while keeping public pricing sorted", async () => {
+    await savePlatformPlan({
+      id: "scale",
+      name: "Scale",
+      hidden: false,
+      monthlyPrice: 199,
+      annualPrice: 1990,
+      featuresText: "Unlimited workspaces\nPriority support",
+    });
+    await savePlatformPlan({
+      id: "growth",
+      name: "Growth",
+      hidden: false,
+      monthlyPrice: 99,
+      annualPrice: 990,
+      featuresText: "Single founder workspace\nGitHub + GCP",
+    });
+    await savePlatformPlan({
+      existingPlanId: "growth",
+      id: "growth",
+      name: "Growth Plus",
+      hidden: false,
+      monthlyPrice: 99,
+      annualPrice: 990,
+      featuresText: "Single founder workspace\nGitHub + GCP\nStripe checkout",
+    });
+
+    const pricing = await getPublicPricingData();
+
+    expect(pricing.plans.map((plan) => plan.id)).toEqual(["growth", "scale"]);
+    expect(database.platformPlans.find((plan) => plan.id === "growth")).toMatchObject({
+      name: "Growth Plus",
+      features: [
+        "Single founder workspace",
+        "GitHub + GCP",
+        "Stripe checkout",
+      ],
+    });
+  });
+
+  it("rejects platform plans that do not match the configured Stripe price-map keys", async () => {
+    process.env.STRIPE_PLATFORM_PRICE_MAP_JSON = JSON.stringify({
+      growth: {
+        monthly: "price_monthly_growth",
+        annual: "price_annual_growth",
+      },
+    });
+
+    await expect(
+      savePlatformPlan({
+        id: "scale",
+        name: "Scale",
+        hidden: false,
+        monthlyPrice: 199,
+        annualPrice: 1990,
+        featuresText: "Unlimited workspaces\nPriority support",
+      }),
+    ).rejects.toThrow("Missing price-map entries for: scale");
+  });
+
+  it("rejects hiding the last visible plan when public signup is enabled", async () => {
+    database.platformPlans = [
+      {
+        id: "growth",
+        name: "Growth",
+        hidden: false,
+        monthlyPrice: 99,
+        annualPrice: 990,
+        features: ["Single founder"],
+      },
+    ];
+    database.globalFeatureFlags.publicSignupEnabled = true;
+
+    await expect(
+      savePlatformPlan({
+        existingPlanId: "growth",
+        id: "growth",
+        name: "Growth",
+        hidden: true,
+        monthlyPrice: 99,
+        annualPrice: 990,
+        featuresText: "Single founder",
+      }),
+    ).rejects.toThrow("At least one platform plan must be visible");
+  });
+
+  it("rejects deleting plans that are still referenced by workspace subscriptions", async () => {
+    database.platformPlans = [
+      {
+        id: "growth",
+        name: "Growth",
+        hidden: false,
+        monthlyPrice: 99,
+        annualPrice: 990,
+        features: ["Single founder"],
+      },
+    ];
+    database.platformSubscriptions = [
+      {
+        id: "subscription-1",
+        workspaceId: "workspace-1",
+        planId: "growth",
+        status: "trial",
+        source: "self-serve",
+        createdAt: "2026-04-15T12:00:00.000Z",
+        updatedAt: "2026-04-15T12:00:00.000Z",
+      },
+    ];
+
+    await expect(deletePlatformPlan("growth")).rejects.toThrow(
+      "workspace subscriptions",
+    );
+  });
+
+  it("creates a Stripe Checkout session for trial workspaces", async () => {
+    process.env.MICROSAAS_FACTORY_APP_URL = "https://microsaasfactory.io";
+    process.env.STRIPE_PLATFORM_SECRET_KEY = "sk_platform_123";
+    process.env.STRIPE_PLATFORM_WEBHOOK_SECRET = "whsec_platform_123";
+    process.env.STRIPE_PLATFORM_PRICE_MAP_JSON = JSON.stringify({
+      growth: {
+        monthly: "price_monthly_growth",
+        annual: "price_annual_growth",
+      },
+    });
+
+    database.platformPlans = [
+      {
+        id: "growth",
+        name: "Growth",
+        hidden: false,
+        monthlyPrice: 99,
+        annualPrice: 990,
+        features: ["Single founder"],
+      },
+    ];
+    database.globalFeatureFlags.platformBillingEnabled = true;
+    database.globalFeatureFlags.checkoutEnabled = true;
+    database.workspaces = [makeWorkspace()];
+    database.users = [
+      {
+        id: "user-1",
+        email: "founder@example.com",
+        name: "Founder",
+        workspaceId: "workspace-1",
+        createdAt: "2026-04-15T12:00:00.000Z",
+        lastLoginAt: "2026-04-15T12:00:00.000Z",
+        lastLoginMethod: "firebase-google",
+      },
+    ];
+    database.platformSubscriptions = [
+      {
+        id: "subscription-1",
+        workspaceId: "workspace-1",
+        planId: "growth",
+        status: "trial",
+        source: "self-serve",
+        createdAt: "2026-04-15T12:00:00.000Z",
+        updatedAt: "2026-04-15T12:00:00.000Z",
+      },
+    ];
+
+    const session = await createPlatformCheckoutSession("workspace-1", {
+      planId: "growth",
+      billingInterval: "monthly",
+    });
+
+    expect(createStripePlatformCheckoutSessionMock).toHaveBeenCalledWith({
+      priceId: "price_monthly_growth",
+      customerEmail: "founder@example.com",
+      workspaceId: "workspace-1",
+      planId: "growth",
+      billingInterval: "monthly",
+    });
+    expect(session.url).toContain("checkout.stripe.com");
+    expect(database.platformSubscriptions[0]).toMatchObject({
+      stripeCheckoutSessionId: "cs_test_123",
+      status: "trial",
+    });
+  });
+
+  it("promotes invite or trial subscriptions to active after Stripe checkout completes", async () => {
+    database.platformSubscriptions = [
+      {
+        id: "subscription-1",
+        workspaceId: "workspace-1",
+        planId: "beta-invite",
+        status: "beta",
+        source: "invite",
+        createdAt: "2026-04-15T12:00:00.000Z",
+        updatedAt: "2026-04-15T12:00:00.000Z",
+        stripeCheckoutSessionId: "cs_test_123",
+      },
+    ];
+
+    const result = await handleStripePlatformWebhook(
+      JSON.stringify({
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: "cs_test_123",
+            mode: "subscription",
+            customer: "cus_123",
+            subscription: "sub_123",
+            client_reference_id: "workspace-1",
+            metadata: {
+              workspaceId: "workspace-1",
+              planId: "growth",
+              billingInterval: "monthly",
+            },
+          },
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      received: true,
+      eventType: "checkout.session.completed",
+      matchedSubscriptionCount: 1,
+      updatedSubscriptionCount: 1,
+    });
+    expect(database.platformSubscriptions[0]).toMatchObject({
+      planId: "growth",
+      status: "active",
+      stripeCustomerId: "cus_123",
+      stripeSubscriptionId: "sub_123",
+      stripeCheckoutSessionId: "cs_test_123",
     });
   });
 

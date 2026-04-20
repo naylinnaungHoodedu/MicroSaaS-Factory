@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
 import { submitWaitlistAction } from "@/lib/server/actions";
+import { getPublicFunnelState } from "@/lib/server/funnel";
 
 export default async function WaitlistPage({
   searchParams,
@@ -9,9 +11,33 @@ export default async function WaitlistPage({
   searchParams: Promise<{ submitted?: string }>;
 }) {
   const resolved = await searchParams;
+  const funnel = await getPublicFunnelState();
 
   return (
     <main className="page-shell py-10">
+      <PublicHeroPanel
+        state={funnel}
+        auxiliary={
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                Invite queue
+              </p>
+              <p className="mt-3 text-lg font-semibold text-white">
+                {funnel.signupAvailable
+                  ? "The waitlist remains available beside the public signup path."
+                  : "The waitlist is the current public path into the beta."}
+              </p>
+            </div>
+            <p className="leading-7 text-slate-300">
+              Founders can still request invite review even when pricing or signup is visible, which keeps high-intent beta candidates flowing through the operator-controlled path.
+            </p>
+          </div>
+        }
+      >
+        <PublicJourneyRail state={funnel} />
+      </PublicHeroPanel>
+
       <Section
         eyebrow="Request Invite"
         title="Join the founder beta."
@@ -55,13 +81,28 @@ export default async function WaitlistPage({
             </button>
           </form>
 
-          <div className="space-y-4 rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-6 text-sm leading-7 text-slate-300">
-            <p className="text-xs uppercase tracking-[0.24em] text-cyan-300/80">Beta Fit</p>
-            <p>The strongest beta candidates already have one product idea or one live product and need better operating discipline rather than generic idea generation.</p>
-            <p>Invite beta includes one owner workspace, one or more products, connected ops, and internal billing readiness with public checkout disabled.</p>
-            <Link href="/" className="inline-flex rounded-full border border-white/10 px-4 py-2 text-white transition hover:border-white/25">
-              Back to overview
-            </Link>
+          <div className="space-y-6">
+            <PublicInfoCard
+              eyebrow="Beta Fit"
+              title="The strongest candidates already feel workflow drag."
+              detail="The best beta founders already have one product idea or one live product and need better operating discipline rather than generic idea generation."
+            />
+            <PublicInfoCard
+              eyebrow="Current Public Path"
+              title="Invite review can coexist with pricing and signup."
+              detail="The waitlist remains useful even when public pricing or signup is visible, because the operator may still want to selectively issue invites to higher-signal founders."
+            >
+              <div className="flex flex-wrap gap-3">
+                {funnel.signupAvailable ? (
+                  <Link href="/signup" className="button-secondary">
+                    Open signup instead
+                  </Link>
+                ) : null}
+                <Link href="/" className="button-secondary">
+                  Back to overview
+                </Link>
+              </div>
+            </PublicInfoCard>
           </div>
         </div>
       </Section>
