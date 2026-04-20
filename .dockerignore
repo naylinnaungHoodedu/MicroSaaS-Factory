@@ -1,0 +1,10 @@
+.next
+.local
+coverage
+node_modules
+playwright-report
+scaffold-app
+test-results
+*.log
+.env*
+!.env.example
