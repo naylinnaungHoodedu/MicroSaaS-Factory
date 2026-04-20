@@ -1,11 +1,22 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { buildPublicPageMetadata } from "@/app/public-metadata";
 import { FirebaseLoginPanel } from "@/components/firebase-login-panel";
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
 import { createSignupIntentAction } from "@/lib/server/actions";
 import { getPublicFunnelState } from "@/lib/server/funnel";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildPublicPageMetadata({
+  title: "Signup",
+  description:
+    "Create a founder workspace or record signup intent based on the current MicroSaaS Factory activation posture.",
+  path: "/signup",
+});
 
 export default async function SignupPage({
   searchParams,
@@ -87,6 +98,7 @@ export default async function SignupPage({
                 required
                 placeholder="Founder name"
                 defaultValue={signupIntent?.founderName ?? ""}
+                autoComplete="name"
               />
             </label>
             <label className="space-y-2">
@@ -97,6 +109,7 @@ export default async function SignupPage({
                 required
                 placeholder="founder@company.com"
                 defaultValue={signupIntent?.email ?? ""}
+                autoComplete="email"
               />
             </label>
             <label className="space-y-2">
@@ -106,6 +119,7 @@ export default async function SignupPage({
                 required
                 placeholder="Factory Lab"
                 defaultValue={signupIntent?.workspaceName ?? ""}
+                autoComplete="organization"
               />
             </label>
             <label className="space-y-2">

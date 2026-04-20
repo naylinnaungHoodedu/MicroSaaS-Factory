@@ -1,11 +1,22 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { buildPublicPageMetadata } from "@/app/public-metadata";
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
 import { startPlatformCheckoutAction } from "@/lib/server/actions";
 import { getPublicFunnelState } from "@/lib/server/funnel";
 import { formatCurrency } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildPublicPageMetadata({
+  title: "Pricing",
+  description:
+    "Compare MicroSaaS Factory plan visibility, billing posture, and founder upgrade paths.",
+  path: "/pricing",
+});
 
 export default async function PricingPage({
   searchParams,

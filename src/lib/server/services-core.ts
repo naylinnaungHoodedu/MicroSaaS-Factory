@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   BETA_PLATFORM_PLAN_ID,
-  DEFAULT_FEATURE_FLAGS,
   DEFAULT_EMAIL_SEQUENCE,
   INTEGRATION_LABELS,
   PRODUCT_STAGES,
@@ -1697,7 +1696,7 @@ function ensureProvisionedFounderWorkspace(
       name: input.workspaceName.trim(),
       ownerUserId: user.id,
       createdAt: timestamp,
-      featureFlags: DEFAULT_FEATURE_FLAGS,
+      featureFlags: { ...database.globalFeatureFlags },
     };
     user.workspaceId = workspace.id;
     database.workspaces.push(workspace);

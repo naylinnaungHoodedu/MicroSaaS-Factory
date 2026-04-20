@@ -193,6 +193,43 @@ export function AdminConsoleSection({
             </div>
           ))}
         </div>
+
+        <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Launch readiness
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-300">
+                The same runtime model now drives the external health probe and the operator
+                readiness checks used before public self-serve flips.
+              </p>
+            </div>
+            <Link href="/api/healthz" className="text-sm text-cyan-200 underline underline-offset-4">
+              Open /api/healthz
+            </Link>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3 text-xs text-slate-200">
+            <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
+              public plans {overview.readiness.publicPlans.length}
+            </span>
+            <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
+              pricing {overview.readiness.pricingReady ? "ready" : "not ready"}
+            </span>
+            <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
+              signup intent {overview.readiness.signupIntentReady ? "ready" : "not ready"}
+            </span>
+            <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
+              checkout prep {overview.readiness.checkoutReady ? "ready" : "not ready"}
+            </span>
+            <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
+              self-serve {overview.readiness.selfServeReady ? "ready" : "not ready"}
+            </span>
+            <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
+              automation {overview.readiness.automationReady ? "ready" : "not ready"}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">

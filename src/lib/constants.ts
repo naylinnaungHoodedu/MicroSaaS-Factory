@@ -1,6 +1,7 @@
 import type {
   FeatureFlags,
   IntegrationProvider,
+  PlatformPlan,
   ProductStage,
   ValidationLeadStatus,
   ValidationSessionChannel,
@@ -85,13 +86,23 @@ export const VALIDATION_TASK_STATES: ValidationTaskState[] = [
   "canceled",
 ];
 
-export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+export const LEGACY_INVITE_ONLY_FEATURE_FLAGS: FeatureFlags = {
   inviteOnlyBeta: true,
   publicWaitlist: true,
   publicSignupEnabled: false,
   selfServeProvisioningEnabled: false,
   checkoutEnabled: false,
   platformBillingEnabled: false,
+  proAiEnabled: false,
+};
+
+export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+  inviteOnlyBeta: true,
+  publicWaitlist: true,
+  publicSignupEnabled: true,
+  selfServeProvisioningEnabled: false,
+  checkoutEnabled: false,
+  platformBillingEnabled: true,
   proAiEnabled: false,
 };
 
@@ -104,3 +115,28 @@ export const DEFAULT_EMAIL_SEQUENCE = [
 ] as const;
 
 export const BETA_PLATFORM_PLAN_ID = "beta-invite";
+export const DEFAULT_BETA_PLATFORM_PLAN = {
+  id: BETA_PLATFORM_PLAN_ID,
+  name: "Invite Beta",
+  hidden: true,
+  monthlyPrice: 49,
+  annualPrice: 490,
+  features: [
+    "Single-founder workspace",
+    "GitHub + GCP + Stripe + Resend connections",
+    "Research, spec, launch gate, and portfolio views",
+  ],
+} satisfies PlatformPlan;
+
+export const DEFAULT_PUBLIC_GROWTH_PLAN = {
+  id: "growth",
+  name: "Growth",
+  hidden: false,
+  monthlyPrice: 99,
+  annualPrice: 990,
+  features: [
+    "Single-founder workspace",
+    "Operator-reviewed signup and invite conversion",
+    "Research, spec, launch gate, and portfolio views",
+  ],
+} satisfies PlatformPlan;

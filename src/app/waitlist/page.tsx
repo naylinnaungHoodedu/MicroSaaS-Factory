@@ -1,9 +1,20 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
+import { buildPublicPageMetadata } from "@/app/public-metadata";
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
 import { submitWaitlistAction } from "@/lib/server/actions";
 import { getPublicFunnelState } from "@/lib/server/funnel";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildPublicPageMetadata({
+  title: "Request Invite",
+  description:
+    "Join the MicroSaaS Factory founder beta and describe the workflow bottleneck you need to fix.",
+  path: "/waitlist",
+});
 
 export default async function WaitlistPage({
   searchParams,
@@ -53,11 +64,17 @@ export default async function WaitlistPage({
           <form action={submitWaitlistAction} className="space-y-5">
             <label className="space-y-2">
               <span className="text-sm text-slate-300">Name</span>
-              <input name="name" required placeholder="Founder name" />
+              <input name="name" required placeholder="Founder name" autoComplete="name" />
             </label>
             <label className="space-y-2">
               <span className="text-sm text-slate-300">Email</span>
-              <input name="email" type="email" required placeholder="founder@company.com" />
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="founder@company.com"
+                autoComplete="email"
+              />
             </label>
             <label className="space-y-2">
               <span className="text-sm text-slate-300">Current bottleneck</span>

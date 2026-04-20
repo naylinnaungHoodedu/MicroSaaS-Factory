@@ -28,7 +28,7 @@ vi.mock("@/lib/server/funnel", () => ({
   getPublicFunnelState: getPublicFunnelStateMock,
 }));
 
-import WaitlistPage from "./page";
+import WaitlistPage, { metadata as waitlistMetadata } from "./page";
 
 function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
   return {
@@ -51,7 +51,7 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
       publicSignupEnabled: true,
       selfServeProvisioningEnabled: false,
       checkoutEnabled: false,
-      platformBillingEnabled: false,
+      platformBillingEnabled: true,
       proAiEnabled: false,
     },
     founder: {
@@ -76,8 +76,12 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
         features: ["Single founder workspace"],
       },
     ],
-    pricingAction: null,
-    pricingVisible: false,
+    pricingAction: {
+      href: "/pricing",
+      label: "See pricing",
+      kind: "pricing",
+    },
+    pricingVisible: true,
     primaryAction: {
       href: "/signup",
       label: "Start signup",
@@ -86,9 +90,21 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
     readiness: {
       environment: "development",
       productionSafe: true,
-      publicPlans: [],
+      publicPlans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder workspace"],
+        },
+      ],
       publicPlanIdsMissingCheckoutPrices: [],
+      pricingReady: true,
+      signupIntentReady: true,
       firebaseReadyForSelfServe: false,
+      selfServeReady: false,
       checkoutReady: false,
       automationReady: false,
       checks: [],
@@ -129,5 +145,12 @@ describe("/waitlist page", () => {
 
     expect(html).toContain("Join the founder beta.");
     expect(html).toContain("Open signup instead");
+    expect(html).toContain('autoComplete="name"');
+    expect(html).toContain('autoComplete="email"');
+  });
+
+  it("exports canonical waitlist metadata", () => {
+    expect(waitlistMetadata.alternates?.canonical).toBe("/waitlist");
+    expect(waitlistMetadata.description).toContain("founder beta");
   });
 });

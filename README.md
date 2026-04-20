@@ -6,7 +6,7 @@
 [![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-orange?logo=firebase)](https://firebase.google.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-97%20passing-brightgreen)](.)
+[![Tests](https://img.shields.io/badge/Tests-141%20unit%20%2B%2010%20e2e-brightgreen)](.)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
@@ -29,7 +29,8 @@ MicroSaaS Factory is a full-stack web platform designed for solo SaaS founders w
 ### Platform Features
 
 - **Invite-Only Beta** — Admin-issued invite tokens with workspace provisioning
-- **Self-Serve Signup** — Feature-flagged public signup with Firebase Auth (Google + email link)
+- **Staged Commercialization Funnel** — Public pricing plus operator-reviewed signup intent by default, with self-serve kept behind a separate activation flag
+- **Self-Serve Signup Prep** — Firebase Auth (Google + email link) can be made ready before automatic provisioning is opened
 - **Validation CRM** — Cross-product task inbox with overdue/snoozed/due-today bucketing
 - **AI Generation** — Vertex AI (Flash/Pro) for specs, opportunity readouts, launch checklists, onboarding email copy
 - **LiveOps Automation** — Scheduled integration refresh + CRM sweep with digest emails
@@ -139,6 +140,7 @@ The app starts at `http://localhost:3000` with the local JSON backend writing to
 |----------|--------------|
 | `INTERNAL_AUTOMATION_KEY` | Secures internal automation job endpoints |
 | `MICROSAAS_FACTORY_LOCAL_DB_FILE` | Override local DB file path |
+| `MICROSAAS_FACTORY_LONG_HSTS` | Set to `1` only after the public edge is confirmed to issue a permanent HTTP -> HTTPS redirect |
 | `FIRESTORE_SERVICE_ACCOUNT_JSON` | Firestore production credentials |
 | `NEXT_PUBLIC_FIREBASE_*` | When Firebase Auth is enabled |
 | `FIREBASE_SERVICE_ACCOUNT_*` | Canonical Firebase Admin env names for self-serve signup |
@@ -168,7 +170,7 @@ npm run test:e2e
 npm run test:all
 ```
 
-**Current status**: 121/121 tests passing in the current Vitest suite.
+**Current status**: 141/141 Vitest tests passing and 10/10 Playwright scenarios passing.
 
 The Playwright harness runs against the standalone production build and uses an isolated database file via `MICROSAAS_FACTORY_LOCAL_DB_FILE`, so it does not mutate default development state.
 
@@ -192,10 +194,13 @@ Additional production rollout items:
 
 - Set `MICROSAAS_FACTORY_APP_URL` to the production hostname.
 - Set `FIRESTORE_PROJECT_ID` explicitly in production, even when the Cloud Run project is already known through ADC.
-- For self-serve signup, provide the full Firebase client suite plus `FIREBASE_SERVICE_ACCOUNT_*`.
+- For staged signup intent, keep at least one visible public plan live. The repo now seeds `growth` at `99` monthly / `990` annual when no visible public plan exists.
+- For self-serve signup readiness, provide the full Firebase client suite plus `FIREBASE_SERVICE_ACCOUNT_*`, but keep `selfServeProvisioningEnabled=false` until the activation lane has been verified.
 - For platform billing, provide `STRIPE_PLATFORM_SECRET_KEY`, `STRIPE_PLATFORM_WEBHOOK_SECRET`, and `STRIPE_PLATFORM_PRICE_MAP_JSON`.
+- Leave `checkoutEnabled=false` until Stripe checkout has been exercised manually against the live environment.
 - Move runtime secrets to Secret Manager-backed Cloud Run refs instead of plain env vars.
-- Run the scheduler and monitoring scripts in `scripts/` after deployment.
+- Confirm the public edge: permanent HTTP -> HTTPS redirect, `/robots.txt`, `/sitemap.xml`, and `/api/healthz` should all pass before enabling long HSTS.
+- Run the scheduler, monitoring, and public-edge verification scripts in `scripts/` after deployment.
 
 1. ✅ Create an Artifact Registry repository for the container image
 2. ✅ Set `MICROSAAS_FACTORY_DB_BACKEND=firestore` with valid Firestore credentials
@@ -254,6 +259,18 @@ And it supports Secret Manager refs for:
 - `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY`
 - Optional GitHub / Google service-account private credentials
 
+### Runtime Health
+
+`GET /api/healthz` is intentionally minimal and public-safe:
+
+- `ok=true` means the deployment is production-safe for its current flag posture.
+- `readiness.pricingReady` tracks whether public pricing can be shown.
+- `readiness.signupIntentReady` tracks whether operator-reviewed signup can be exposed.
+- `readiness.checkoutReady` tracks whether Stripe checkout is fully configured.
+- `readiness.selfServeReady` tracks whether Firebase-backed self-serve activation is ready.
+
+Detailed auth, storage, and readiness diagnostics remain server-side in the admin console.
+
 ---
 
 ## Feature Flags
@@ -264,13 +281,13 @@ The platform behavior is controlled by global feature flags managed via the admi
 |------|---------|-------------|
 | `inviteOnlyBeta` | `true` | Require admin-issued invite tokens |
 | `publicWaitlist` | `true` | Show waitlist request form |
-| `publicSignupEnabled` | `false` | Allow public self-serve signup |
-| `selfServeProvisioningEnabled` | `false` | Auto-provision workspaces on signup |
+| `publicSignupEnabled` | `true` | Allow public operator-reviewed signup intent |
+| `selfServeProvisioningEnabled` | `false` | Auto-provision workspaces on signup once Firebase readiness is green |
 | `checkoutEnabled` | `false` | Enable Stripe checkout flows |
-| `platformBillingEnabled` | `false` | Show pricing plans |
+| `platformBillingEnabled` | `true` | Show pricing plans publicly |
 | `proAiEnabled` | `false` | Enable Gemini Pro model (vs Flash only) |
 
-Production guardrails now reject unsafe flag transitions. Self-serve provisioning requires a visible public plan plus complete Firebase config, and Checkout requires platform billing visibility plus Stripe Checkout readiness.
+Production guardrails now reject unsafe flag transitions. Public pricing and signup intent require at least one visible public plan, self-serve provisioning requires Firebase readiness, and Checkout requires platform billing visibility plus Stripe Checkout readiness.
 
 ---
 
@@ -303,6 +320,19 @@ pwsh ./scripts/setup-monitoring-alerts.ps1 `
 If you already have a Monitoring notification channel, you can still pass `-NotificationChannel` directly.
 
 See `scripts/cloud-ops-runbook.md` for the full operating runbook.
+
+## Public Edge Verification
+
+Use the verification script after each production rollout:
+
+```powershell
+pwsh ./scripts/verify-public-edge.ps1 `
+  -Domain microsaasfactory.io `
+  -ExpectPermanentRedirect `
+  -ExpectLongHsts
+```
+
+This checks the public root headers, `robots.txt`, `sitemap.xml`, `/api/healthz`, HTTP redirect behavior, and the visible DNS records for MX/TXT/DMARC/CAA posture.
 
 ---
 

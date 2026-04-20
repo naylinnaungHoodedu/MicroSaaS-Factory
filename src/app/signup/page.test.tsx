@@ -37,7 +37,7 @@ vi.mock("@/lib/server/funnel", () => ({
   getPublicFunnelState: getPublicFunnelStateMock,
 }));
 
-import SignupPage from "./page";
+import SignupPage, { metadata as signupMetadata } from "./page";
 
 function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
   return {
@@ -60,7 +60,7 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
       publicSignupEnabled: true,
       selfServeProvisioningEnabled: false,
       checkoutEnabled: false,
-      platformBillingEnabled: false,
+      platformBillingEnabled: true,
       proAiEnabled: false,
     },
     founder: {
@@ -95,9 +95,21 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
     readiness: {
       environment: "development",
       productionSafe: true,
-      publicPlans: [],
+      publicPlans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder workspace"],
+        },
+      ],
       publicPlanIdsMissingCheckoutPrices: [],
+      pricingReady: true,
+      signupIntentReady: true,
       firebaseReadyForSelfServe: false,
+      selfServeReady: false,
       checkoutReady: false,
       automationReady: false,
       checks: [],
@@ -159,6 +171,9 @@ describe("/signup page", () => {
     expect(html).toContain("Register a founder intent");
     expect(html).toContain("Your signup intent has been recorded.");
     expect(html).toContain("Submit signup intent");
+    expect(html).toContain('autoComplete="name"');
+    expect(html).toContain('autoComplete="email"');
+    expect(html).toContain('autoComplete="organization"');
   });
 
   it("renders the self-serve activation lane when provisioning is enabled", async () => {
@@ -181,8 +196,31 @@ describe("/signup page", () => {
           publicSignupEnabled: true,
           selfServeProvisioningEnabled: true,
           checkoutEnabled: false,
-          platformBillingEnabled: false,
+          platformBillingEnabled: true,
           proAiEnabled: false,
+        },
+        readiness: {
+          environment: "development",
+          productionSafe: true,
+          publicPlans: [
+            {
+              id: "growth",
+              name: "Growth",
+              hidden: false,
+              monthlyPrice: 99,
+              annualPrice: 990,
+              features: ["Single founder workspace"],
+            },
+          ],
+          publicPlanIdsMissingCheckoutPrices: [],
+          pricingReady: true,
+          signupIntentReady: true,
+          firebaseReadyForSelfServe: true,
+          selfServeReady: true,
+          checkoutReady: false,
+          automationReady: false,
+          checks: [],
+          blockingIssues: [],
         },
         journeyMode: "self_serve",
         primaryAction: {
@@ -240,7 +278,7 @@ describe("/signup page", () => {
           publicSignupEnabled: true,
           selfServeProvisioningEnabled: true,
           checkoutEnabled: false,
-          platformBillingEnabled: false,
+          platformBillingEnabled: true,
           proAiEnabled: false,
         },
         journeyMode: "self_serve",
@@ -259,5 +297,10 @@ describe("/signup page", () => {
     );
 
     expect(html).toContain("Self-serve workspace activation is enabled");
+  });
+
+  it("exports canonical signup metadata", () => {
+    expect(signupMetadata.alternates?.canonical).toBe("/signup");
+    expect(signupMetadata.description).toContain("founder workspace");
   });
 });

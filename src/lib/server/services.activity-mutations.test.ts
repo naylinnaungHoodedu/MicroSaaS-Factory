@@ -1824,7 +1824,7 @@ describe("activity mutation logging", () => {
     ).rejects.toThrow("Missing price-map entries for: scale");
   });
 
-  it("rejects hiding the last visible plan when public signup is enabled", async () => {
+  it("rejects hiding the last visible plan when staged public pricing or signup is enabled", async () => {
     database.platformPlans = [
       {
         id: "growth",
@@ -1847,7 +1847,7 @@ describe("activity mutation logging", () => {
         annualPrice: 990,
         featuresText: "Single founder",
       }),
-    ).rejects.toThrow("At least one platform plan must be visible");
+    ).rejects.toThrow("visible public plan");
   });
 
   it("rejects deleting plans that are still referenced by workspace subscriptions", async () => {

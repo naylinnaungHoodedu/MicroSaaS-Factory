@@ -33,29 +33,29 @@ vi.mock("@/lib/server/funnel", () => ({
   getPublicFunnelState: getPublicFunnelStateMock,
 }));
 
-import PricingPage from "./page";
+import PricingPage, { metadata as pricingMetadata } from "./page";
 
 function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
   return {
-    activationDetail: "Firebase activation is ready for self-serve workspace provisioning.",
-    activationReady: true,
+    activationDetail: "Activation follows the current operator-controlled invite or signup-intent flow.",
+    activationReady: false,
     auth: {
-      firebaseEnabled: true,
+      firebaseEnabled: false,
       firebaseTestMode: false,
       inviteTokenEnabled: true,
-      firebaseClientConfigured: true,
-      firebaseAdminConfigured: true,
-      firebaseProjectId: "demo-project",
+      firebaseClientConfigured: false,
+      firebaseAdminConfigured: false,
+      firebaseProjectId: null,
       firebaseError: null,
     },
-    availabilityMode: "self_serve",
-    checkoutVisible: true,
+    availabilityMode: "signup_intent",
+    checkoutVisible: false,
     flags: {
       inviteOnlyBeta: true,
       publicWaitlist: true,
       publicSignupEnabled: true,
-      selfServeProvisioningEnabled: true,
-      checkoutEnabled: true,
+      selfServeProvisioningEnabled: false,
+      checkoutEnabled: false,
       platformBillingEnabled: true,
       proAiEnabled: false,
     },
@@ -65,7 +65,7 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
       hasActiveSubscription: false,
       canStartCheckout: false,
     },
-    journeyMode: "self_serve",
+    journeyMode: "signup_intent",
     metrics: {
       productCount: 0,
       waitlistCount: 0,
@@ -89,16 +89,28 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
     pricingVisible: true,
     primaryAction: {
       href: "/signup",
-      label: "Create workspace",
+      label: "Start signup",
       kind: "signup",
     },
     readiness: {
       environment: "development",
       productionSafe: true,
-      publicPlans: [],
+      publicPlans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder workspace"],
+        },
+      ],
       publicPlanIdsMissingCheckoutPrices: [],
-      firebaseReadyForSelfServe: true,
-      checkoutReady: true,
+      pricingReady: true,
+      signupIntentReady: true,
+      firebaseReadyForSelfServe: false,
+      selfServeReady: false,
+      checkoutReady: false,
       automationReady: false,
       checks: [],
       blockingIssues: [],
@@ -111,10 +123,10 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
     signupAvailable: true,
     signupIntent: null,
     summary: {
-      eyebrow: "Live Self-Serve",
-      title: "Choose a lane, verify identity, and open a founder workspace.",
+      eyebrow: "Guided Signup",
+      title: "Capture founder demand now, provision deliberately later.",
       detail:
-        "Pricing, signup, and Firebase activation are aligned for self-serve founders in this environment.",
+        "Public signup is collecting the founder, workspace, and plan choice without skipping operator review.",
       tone: "cyan",
     },
     waitlistOpen: true,
@@ -150,12 +162,23 @@ describe("/pricing page", () => {
 
     expect(html).toContain("Choose the MicroSaaS Factory lane");
     expect(html).toContain("Growth");
-    expect(html).toContain("Create workspace");
+    expect(html).toContain("Start signup");
+    expect(html).not.toContain("Start monthly checkout");
   });
 
   it("renders checkout buttons for eligible founder workspaces", async () => {
     getPublicFunnelStateMock.mockResolvedValue(
       buildFunnelState({
+        checkoutVisible: true,
+        flags: {
+          inviteOnlyBeta: true,
+          publicWaitlist: true,
+          publicSignupEnabled: true,
+          selfServeProvisioningEnabled: false,
+          checkoutEnabled: true,
+          platformBillingEnabled: true,
+          proAiEnabled: false,
+        },
         founder: {
           loggedIn: true,
           workspaceId: "workspace-1",
@@ -164,6 +187,29 @@ describe("/pricing page", () => {
           hasActiveSubscription: false,
           canStartCheckout: true,
         },
+        readiness: {
+          environment: "development",
+          productionSafe: true,
+          publicPlans: [
+            {
+              id: "growth",
+              name: "Growth",
+              hidden: false,
+              monthlyPrice: 99,
+              annualPrice: 990,
+              features: ["Single founder workspace"],
+            },
+          ],
+          publicPlanIdsMissingCheckoutPrices: [],
+          pricingReady: true,
+          signupIntentReady: true,
+          firebaseReadyForSelfServe: false,
+          selfServeReady: false,
+          checkoutReady: true,
+          automationReady: false,
+          checks: [],
+          blockingIssues: [],
+        },
       }),
     );
 
@@ -171,5 +217,10 @@ describe("/pricing page", () => {
 
     expect(html).toContain("Start monthly checkout");
     expect(html).toContain("Start annual checkout");
+  });
+
+  it("exports canonical pricing metadata", () => {
+    expect(pricingMetadata.alternates?.canonical).toBe("/pricing");
+    expect(pricingMetadata.description).toContain("billing posture");
   });
 });

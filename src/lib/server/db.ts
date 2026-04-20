@@ -5,8 +5,14 @@ import path from "node:path";
 
 import { Firestore, type QuerySnapshot, type Transaction } from "@google-cloud/firestore";
 
-import { BETA_PLATFORM_PLAN_ID, DEFAULT_FEATURE_FLAGS } from "@/lib/constants";
-import type { DatabaseShape } from "@/lib/types";
+import {
+  BETA_PLATFORM_PLAN_ID,
+  DEFAULT_BETA_PLATFORM_PLAN,
+  DEFAULT_FEATURE_FLAGS,
+  DEFAULT_PUBLIC_GROWTH_PLAN,
+  LEGACY_INVITE_ONLY_FEATURE_FLAGS,
+} from "@/lib/constants";
+import type { DatabaseShape, FeatureFlags, PlatformPlan } from "@/lib/types";
 
 const DEFAULT_DATA_FILE = path.join(process.cwd(), ".local", "microsaas-factory-db.json");
 const DEFAULT_FIRESTORE_COLLECTION = "microsaasFactoryState";
@@ -32,18 +38,8 @@ const EMPTY_DATABASE: DatabaseShape = {
   emailSequences: [],
   launchGateResults: [],
   platformPlans: [
-    {
-      id: BETA_PLATFORM_PLAN_ID,
-      name: "Invite Beta",
-      hidden: true,
-      monthlyPrice: 49,
-      annualPrice: 490,
-      features: [
-        "Single-founder workspace",
-        "GitHub + GCP + Stripe + Resend connections",
-        "Research, spec, launch gate, and portfolio views",
-      ],
-    },
+    { ...DEFAULT_BETA_PLATFORM_PLAN },
+    { ...DEFAULT_PUBLIC_GROWTH_PLAN },
   ],
   platformSubscriptions: [],
   activityEvents: [],
@@ -76,12 +72,14 @@ type FirestoreBackendConfig = {
 };
 
 export function hydrateDatabase(parsed?: Partial<DatabaseShape> | null) {
+  const platformPlans = ensureSeedPlatformPlans(parsed?.platformPlans);
+  const globalFeatureFlags = normalizeGlobalFeatureFlags(parsed?.globalFeatureFlags);
   const database = {
     ...EMPTY_DATABASE,
     ...parsed,
+    platformPlans,
     globalFeatureFlags: {
-      ...DEFAULT_FEATURE_FLAGS,
-      ...(parsed?.globalFeatureFlags ?? {}),
+      ...globalFeatureFlags,
     },
   } satisfies DatabaseShape;
 
@@ -128,6 +126,35 @@ export function hydrateDatabase(parsed?: Partial<DatabaseShape> | null) {
     automationRuns: database.automationRuns ?? [],
     platformSubscriptions,
   } satisfies DatabaseShape;
+}
+
+function ensureSeedPlatformPlans(plans?: PlatformPlan[]) {
+  const nextPlans = [...(plans ?? EMPTY_DATABASE.platformPlans)];
+
+  if (!nextPlans.some((plan) => plan.id === BETA_PLATFORM_PLAN_ID)) {
+    nextPlans.unshift({ ...DEFAULT_BETA_PLATFORM_PLAN });
+  }
+
+  if (!nextPlans.some((plan) => !plan.hidden)) {
+    nextPlans.push({ ...DEFAULT_PUBLIC_GROWTH_PLAN });
+  }
+
+  return nextPlans;
+}
+
+function isLegacyInviteOnlyState(flags: FeatureFlags) {
+  return Object.entries(LEGACY_INVITE_ONLY_FEATURE_FLAGS).every(
+    ([key, value]) => flags[key as keyof FeatureFlags] === value,
+  );
+}
+
+function normalizeGlobalFeatureFlags(flags?: Partial<FeatureFlags>) {
+  const merged = {
+    ...DEFAULT_FEATURE_FLAGS,
+    ...(flags ?? {}),
+  } satisfies FeatureFlags;
+
+  return isLegacyInviteOnlyState(merged) ? { ...DEFAULT_FEATURE_FLAGS } : merged;
 }
 
 function getLocalDataFile() {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { LEGACY_INVITE_ONLY_FEATURE_FLAGS } from "@/lib/constants";
 import { getDatabaseBackendInfo, hydrateDatabase } from "@/lib/server/db";
 
 const originalLocalDbFile = process.env.MICROSAAS_FACTORY_LOCAL_DB_FILE;
@@ -36,12 +37,8 @@ describe("hydrateDatabase", () => {
         },
       ],
       globalFeatureFlags: {
-        inviteOnlyBeta: true,
-        publicWaitlist: true,
-        publicSignupEnabled: false,
-        selfServeProvisioningEnabled: false,
+        ...LEGACY_INVITE_ONLY_FEATURE_FLAGS,
         checkoutEnabled: true,
-        platformBillingEnabled: false,
         proAiEnabled: true,
       },
     });
@@ -54,8 +51,35 @@ describe("hydrateDatabase", () => {
     expect(database.validationTasks).toEqual([]);
     expect(database.activityEvents).toEqual([]);
     expect(database.globalFeatureFlags.inviteOnlyBeta).toBe(true);
+    expect(database.platformPlans.some((plan) => plan.id === "beta-invite")).toBe(true);
+    expect(database.platformPlans.some((plan) => plan.id === "growth" && !plan.hidden)).toBe(
+      true,
+    );
     expect(database.globalFeatureFlags.checkoutEnabled).toBe(true);
     expect(database.globalFeatureFlags.proAiEnabled).toBe(true);
+  });
+
+  it("upgrades the legacy invite-only global flags into the staged public rollout defaults", () => {
+    const database = hydrateDatabase({
+      globalFeatureFlags: LEGACY_INVITE_ONLY_FEATURE_FLAGS,
+      platformPlans: [
+        {
+          id: "beta-invite",
+          name: "Invite Beta",
+          hidden: true,
+          monthlyPrice: 49,
+          annualPrice: 490,
+          features: ["Beta"],
+        },
+      ],
+    });
+
+    expect(database.globalFeatureFlags.publicSignupEnabled).toBe(true);
+    expect(database.globalFeatureFlags.platformBillingEnabled).toBe(true);
+    expect(database.globalFeatureFlags.checkoutEnabled).toBe(false);
+    expect(database.platformPlans.some((plan) => plan.id === "growth" && !plan.hidden)).toBe(
+      true,
+    );
   });
 });
 

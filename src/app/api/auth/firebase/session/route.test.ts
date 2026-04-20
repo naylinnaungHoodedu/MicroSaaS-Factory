@@ -37,7 +37,7 @@ vi.mock("@/lib/server/auth", () => ({
   getSessionCookieDescriptor: getSessionCookieDescriptorMock,
 }));
 
-import { POST } from "./route";
+import { DELETE, GET, POST } from "./route";
 
 describe("POST /api/auth/firebase/session", () => {
   beforeEach(() => {
@@ -94,7 +94,7 @@ describe("POST /api/auth/firebase/session", () => {
     });
   });
 
-  it("returns 503 when Firebase sign-in is disabled", async () => {
+  it("returns 501 when Firebase sign-in is disabled", async () => {
     getAuthModeInfoMock.mockReturnValue({
       firebaseEnabled: false,
     });
@@ -107,9 +107,29 @@ describe("POST /api/auth/firebase/session", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(501);
     expect(await response.json()).toEqual({
-      error: "Firebase sign-in is not configured for this environment.",
+      error: "Sign-in is currently unavailable.",
+    });
+  });
+
+  it("returns JSON 405 for GET requests", async () => {
+    const response = await GET();
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("POST");
+    expect(await response.json()).toEqual({
+      error: "Method Not Allowed",
+    });
+  });
+
+  it("returns JSON 405 for DELETE requests", async () => {
+    const response = await DELETE();
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("POST");
+    expect(await response.json()).toEqual({
+      error: "Method Not Allowed",
     });
   });
 

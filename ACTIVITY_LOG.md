@@ -520,3 +520,214 @@ This addendum records the completed implementation pass that followed the earlie
 - The application behavior remains compatible with the existing route surface while the internal code organization is materially cleaner and easier to extend.
 
 *Addendum logged on April 20, 2026 after the architecture split, public funnel unification, UI extraction work, and verification pass.*
+
+---
+
+## April 20, 2026 Self-Serve Launch Readiness Hardening Addendum
+
+This addendum records the completed launch-readiness hardening pass performed after the earlier architecture and funnel refactor work.
+
+### Repository Implementation Completed
+
+- Hardened the application-level HTTP response posture in:
+  - `next.config.ts`
+- Added:
+  - `poweredByHeader: false`
+  - baseline security headers for:
+    - `Strict-Transport-Security`
+    - `X-Content-Type-Options`
+    - `X-Frame-Options`
+    - `Referrer-Policy`
+    - `Permissions-Policy`
+    - `Cross-Origin-Opener-Policy`
+  - an initial `Content-Security-Policy-Report-Only` policy covering the current Google/Firebase, Stripe, GitHub, and Resend integration surface
+
+### Public Metadata And Discoverability Work Completed
+
+- Added centralized public-site metadata helpers in:
+  - `src/lib/site.ts`
+  - `src/app/public-metadata.ts`
+- Expanded `src/app/layout.tsx` to include:
+  - `metadataBase`
+  - canonical metadata
+  - Open Graph metadata
+  - Twitter card metadata
+  - manifest and icon metadata
+  - viewport theme color
+  - SoftwareApplication JSON-LD
+- Added metadata routes in:
+  - `src/app/robots.ts`
+  - `src/app/sitemap.ts`
+  - `src/app/manifest.ts`
+- Added branded launch assets in `public/`:
+  - `og.png`
+  - `icon-192.png`
+  - `icon-512.png`
+  - `apple-touch-icon.png`
+- Added a branded not-found surface in:
+  - `src/app/not-found.tsx`
+
+### Public Funnel Cache And UX Hardening Completed
+
+- Marked the public funnel routes as explicitly dynamic so public-flag flips do not sit behind stale prerender or CDN behavior:
+  - `src/app/page.tsx`
+  - `src/app/pricing/page.tsx`
+  - `src/app/signup/page.tsx`
+  - `src/app/login/page.tsx`
+  - `src/app/waitlist/page.tsx`
+- Added page-level metadata exports for those public routes so canonical/Open Graph/Twitter state is consistent across the landing, pricing, signup, login, and waitlist surfaces.
+- Added practical autofill hints on founder-facing public forms:
+  - founder email fields now advertise `autoComplete="email"`
+  - founder name fields now advertise `autoComplete="name"`
+  - workspace naming uses `autoComplete="organization"`
+  - invite-token entry is explicitly set to `autoComplete="off"`
+
+### Runtime Health And Auth Route Hardening Completed
+
+- Added a reusable runtime health snapshot model in:
+  - `src/lib/server/runtime-config.ts`
+- Added:
+  - `getRuntimeHealthSnapshot()`
+  - typed runtime health payloads combining app URL, auth posture, storage backend, and readiness checks
+- Added the external health endpoint in:
+  - `src/app/api/healthz/route.ts`
+- The health endpoint now:
+  - returns JSON
+  - sets `Cache-Control: no-store`
+  - returns `200` when all readiness checks are ready
+  - returns `503` when runtime remains degraded for self-serve rollout
+- Hardened Firebase session route behavior in:
+  - `src/app/api/auth/firebase/session/route.ts`
+- Changed Firebase session route semantics so:
+  - disabled Firebase returns `501 Not Implemented` with neutral copy
+  - unsupported methods return JSON `405` with `Allow: POST`
+  - the existing invite-scoped, self-serve, and login session flows remain intact
+
+### Operator Console Readiness Visibility Completed
+
+- Extended the admin surface in:
+  - `src/components/admin-sections.tsx`
+- Added operator-facing launch-readiness visibility for:
+  - visible public plan count
+  - Firebase readiness
+  - Stripe checkout readiness
+  - automation readiness
+  - direct health endpoint access via `/api/healthz`
+
+### Regression Coverage Expansion Completed
+
+- Added or updated repository coverage for the launch-readiness pass in:
+  - `next.config.test.ts`
+  - `src/app/metadata-routes.test.ts`
+  - `src/app/api/healthz/route.test.ts`
+  - `src/app/api/auth/firebase/session/route.test.ts`
+  - `src/app/page.test.tsx`
+  - `src/app/pricing/page.test.tsx`
+  - `src/app/signup/page.test.tsx`
+  - `src/app/login/page.test.tsx`
+  - `src/app/waitlist/page.test.tsx`
+  - `e2e/public-signup.spec.ts`
+- Expanded verification to cover:
+  - new security-header config
+  - robots / sitemap / manifest generation
+  - health-endpoint success and degraded semantics
+  - disabled-Firebase `501` handling
+  - JSON `405` method handling on the Firebase session route
+  - public-page metadata exports
+  - Playwright stability after the public-route dynamic-behavior changes
+
+### Verification Completed In This Session
+
+- Confirmed successful local execution of:
+  - `npm test`
+  - `npm run lint`
+  - `npm run build`
+  - `npm run test:e2e`
+- Confirmed the repository test surface now passes with:
+  - `134` passing Vitest tests
+  - `9` passing Playwright end-to-end tests
+- Confirmed the production build now emits and serves:
+  - `/robots.txt`
+  - `/sitemap.xml`
+  - `/manifest.webmanifest`
+  - `/api/healthz`
+
+### Production Deployment Completed
+
+- Submitted and completed a new Cloud Build deployment using:
+  - image tag `deploy-20260420-2`
+- Confirmed the new production Cloud Run revision:
+  - `microsaas-factory-00007-4t6`
+- Confirmed the live site now serves the new revision and exposes:
+  - security headers
+  - no `X-Powered-By` header
+  - no-store public redirects where appropriate
+  - new health and metadata routes
+
+### Live Verification Completed
+
+- Confirmed `https://microsaasfactory.io` now returns:
+  - `Strict-Transport-Security`
+  - `X-Content-Type-Options`
+  - `X-Frame-Options`
+  - `Referrer-Policy`
+  - `Permissions-Policy`
+  - `Cross-Origin-Opener-Policy`
+  - `Content-Security-Policy-Report-Only`
+- Confirmed:
+  - `GET /api/auth/firebase/session` returns JSON `405`
+  - `POST /api/auth/firebase/session` returns JSON `501` while Firebase remains intentionally unconfigured in production
+  - `GET /api/healthz` returns JSON `503` with accurate degraded readiness details because self-serve dependencies are still incomplete
+  - `GET /pricing` now redirects with no-store semantics instead of long-lived CDN cache semantics
+
+### DNS And Platform Follow-Up Completed
+
+- Verified the Cloud Run domain mapping for:
+  - `microsaasfactory.io -> microsaas-factory`
+- Added Cloud DNS CAA records in the `microsaasfactory-io` managed zone:
+  - `0 issue "pki.goog"`
+  - `0 issuewild "pki.goog"`
+- Confirmed Cloud Scheduler jobs remain enabled for:
+  - `microsaas-factory-validation-crm`
+  - `microsaas-factory-live-ops`
+- Confirmed the existing monitoring alert policy remains present for:
+  - `MicroSaaS Factory automation problems`
+
+### Remaining External Inputs Still Blocking Real Self-Serve Enablement
+
+- Firebase production configuration is still not present on Cloud Run for:
+  - `NEXT_PUBLIC_FIREBASE_API_KEY`
+  - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+  - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+  - `NEXT_PUBLIC_FIREBASE_APP_ID`
+  - optional storage and messaging client fields
+  - `FIREBASE_SERVICE_ACCOUNT_PROJECT_ID`
+  - `FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL`
+  - `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY`
+- Stripe production configuration is still not present on Cloud Run for:
+  - `STRIPE_PLATFORM_SECRET_KEY`
+  - `STRIPE_PLATFORM_WEBHOOK_SECRET`
+  - `STRIPE_PLATFORM_PRICE_MAP_JSON`
+- Public pricing is still not self-serve-ready because:
+  - no visible production public plans exist in Firestore
+  - checkout pricing IDs have not been populated for real plans
+- DMARC / SPF / DKIM could not be safely created from this workspace because:
+  - no real DMARC report mailbox was available for publication
+  - no Resend-issued DNS values were available for the sending domain
+- The apex HTTP to HTTPS hop still returns `302`, which appears to be controlled by the current Cloud Run/domain-mapping fronting path rather than by repository code.
+
+### Current Folder Status After This Update
+
+- The current folder now contains:
+  - hardened response-header configuration
+  - shared public metadata helpers
+  - robots / sitemap / manifest route support
+  - branded OG and PWA assets
+  - branded not-found handling
+  - a reusable runtime health model and external health endpoint
+  - updated Firebase session-route semantics
+  - expanded route, metadata, config, and browser regression coverage
+- The live deployment now matches the repository for the completed launch-readiness code path.
+- The remaining work to open real production self-serve is now narrowed to external credential, pricing, and DNS-email-auth inputs rather than missing application code.
+
+*Addendum logged on April 20, 2026 after the self-serve launch-readiness implementation, verification pass, Cloud Build deployment, live production verification, and safe DNS follow-up work.*

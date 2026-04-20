@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_FEATURE_FLAGS } from "@/lib/constants";
+import {
+  DEFAULT_FEATURE_FLAGS,
+  LEGACY_INVITE_ONLY_FEATURE_FLAGS,
+} from "@/lib/constants";
 
 const {
   getDatabaseBackendInfoMock,
@@ -31,6 +34,7 @@ import {
   assertFeatureFlagReadiness,
   assertProductionRuntimeReady,
   evaluateRuntimeReadiness,
+  getRuntimeHealthSnapshot,
   getPublicPlatformPlans,
 } from "./runtime-config";
 
@@ -124,6 +128,116 @@ afterEach(() => {
 });
 
 describe("runtime config readiness", () => {
+  it("treats legacy invite-beta mode as production-safe when blocking runtime config is present", () => {
+    setNodeEnv("production");
+    process.env.MICROSAAS_FACTORY_ENCRYPTION_KEY = "super-strong-production-key";
+    process.env.FIRESTORE_PROJECT_ID = "factory-prod";
+    getDatabaseBackendInfoMock.mockReturnValue({
+      backend: "firestore",
+      projectId: "factory-prod",
+      databaseId: "(default)",
+      collectionName: "microsaasFactoryState",
+    });
+
+    const readiness = evaluateRuntimeReadiness({
+      flags: LEGACY_INVITE_ONLY_FEATURE_FLAGS,
+      plans: [],
+    });
+
+    expect(readiness.productionSafe).toBe(true);
+    expect(readiness.pricingReady).toBe(false);
+    expect(readiness.signupIntentReady).toBe(false);
+    expect(readiness.checkoutReady).toBe(false);
+    expect(readiness.selfServeReady).toBe(false);
+  });
+
+  it("treats staged signup-intent rollout as healthy even when checkout and self-serve are still warnings", () => {
+    setNodeEnv("production");
+    process.env.MICROSAAS_FACTORY_ENCRYPTION_KEY = "super-strong-production-key";
+    process.env.FIRESTORE_PROJECT_ID = "factory-prod";
+    getDatabaseBackendInfoMock.mockReturnValue({
+      backend: "firestore",
+      projectId: "factory-prod",
+      databaseId: "(default)",
+      collectionName: "microsaasFactoryState",
+    });
+
+    const readiness = evaluateRuntimeReadiness({
+      flags: DEFAULT_FEATURE_FLAGS,
+      plans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder"],
+        },
+      ],
+    });
+
+    expect(readiness.productionSafe).toBe(true);
+    expect(readiness.pricingReady).toBe(true);
+    expect(readiness.signupIntentReady).toBe(true);
+    expect(readiness.checkoutReady).toBe(false);
+    expect(readiness.selfServeReady).toBe(false);
+  });
+
+  it("tracks checkout readiness separately from the public checkout flag", () => {
+    setNodeEnv("production");
+    process.env.MICROSAAS_FACTORY_ENCRYPTION_KEY = "super-strong-production-key";
+    process.env.FIRESTORE_PROJECT_ID = "factory-prod";
+    process.env.MICROSAAS_FACTORY_APP_URL = "https://microsaasfactory.io";
+    process.env.STRIPE_PLATFORM_SECRET_KEY = "sk_test_ready";
+    process.env.STRIPE_PLATFORM_WEBHOOK_SECRET = "whsec_ready";
+    process.env.STRIPE_PLATFORM_PRICE_MAP_JSON =
+      '{"growth":{"monthly":"price_monthly_123","annual":"price_annual_123"}}';
+    getDatabaseBackendInfoMock.mockReturnValue({
+      backend: "firestore",
+      projectId: "factory-prod",
+      databaseId: "(default)",
+      collectionName: "microsaasFactoryState",
+    });
+
+    const readiness = evaluateRuntimeReadiness({
+      flags: DEFAULT_FEATURE_FLAGS,
+      plans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder"],
+        },
+      ],
+    });
+
+    expect(readiness.checkoutReady).toBe(true);
+    expect(readiness.productionSafe).toBe(true);
+  });
+
+  it("blocks the staged rollout when pricing or signup intent is enabled without a visible public plan", () => {
+    setNodeEnv("production");
+    process.env.MICROSAAS_FACTORY_ENCRYPTION_KEY = "super-strong-production-key";
+    process.env.FIRESTORE_PROJECT_ID = "factory-prod";
+    getDatabaseBackendInfoMock.mockReturnValue({
+      backend: "firestore",
+      projectId: "factory-prod",
+      databaseId: "(default)",
+      collectionName: "microsaasFactoryState",
+    });
+
+    const readiness = evaluateRuntimeReadiness({
+      flags: DEFAULT_FEATURE_FLAGS,
+      plans: [],
+    });
+
+    expect(readiness.productionSafe).toBe(false);
+    expect(readiness.blockingIssues.join(" ")).toContain("Public pricing");
+    expect(readiness.blockingIssues.join(" ")).toContain("Signup intent");
+  });
+
   it("blocks production readiness when encryption and database settings are unsafe", () => {
     setNodeEnv("production");
     process.env.MICROSAAS_FACTORY_ENCRYPTION_KEY = "change-me";
@@ -145,7 +259,6 @@ describe("runtime config readiness", () => {
       assertFeatureFlagReadiness({
         nextFlags: {
           ...DEFAULT_FEATURE_FLAGS,
-          publicSignupEnabled: true,
           selfServeProvisioningEnabled: true,
         },
         plans: [
@@ -159,7 +272,7 @@ describe("runtime config readiness", () => {
           },
         ],
       }),
-    ).toThrow("Firebase");
+    ).toThrow("Self-serve");
   });
 
   it("sorts visible public plans by ascending price", () => {
@@ -250,5 +363,44 @@ describe("runtime config readiness", () => {
 
     await expect(assertProductionRuntimeReady()).resolves.toBeUndefined();
     expect(readDatabaseMock).not.toHaveBeenCalled();
+  });
+
+  it("publishes a minimal public health snapshot keyed to production safety", async () => {
+    setNodeEnv("production");
+    process.env.MICROSAAS_FACTORY_ENCRYPTION_KEY = "super-strong-production-key";
+    process.env.FIRESTORE_PROJECT_ID = "factory-prod";
+    process.env.MICROSAAS_FACTORY_APP_URL = "https://microsaasfactory.io";
+    getDatabaseBackendInfoMock.mockReturnValue({
+      backend: "firestore",
+      projectId: "factory-prod",
+      databaseId: "(default)",
+      collectionName: "microsaasFactoryState",
+    });
+    readDatabaseMock.mockResolvedValue({
+      globalFeatureFlags: DEFAULT_FEATURE_FLAGS,
+      platformPlans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder"],
+        },
+      ],
+    });
+
+    await expect(getRuntimeHealthSnapshot()).resolves.toEqual({
+      ok: true,
+      generatedAt: expect.any(String),
+      appUrl: "https://microsaasfactory.io",
+      readiness: {
+        pricingReady: true,
+        signupIntentReady: true,
+        checkoutReady: false,
+        selfServeReady: false,
+        automationReady: false,
+      },
+    });
   });
 });

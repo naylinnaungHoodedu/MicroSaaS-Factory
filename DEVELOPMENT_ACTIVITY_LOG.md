@@ -1044,3 +1044,154 @@ Verification Timestamp: `2026-04-16 11:42:11 -04:00`
   - deeper product-route extraction
   - additional self-serve onboarding refinement
   - further operator-facing runtime and rollout clarity
+
+### 28. Self-Serve Launch Readiness Hardening Completed
+- Implemented the next launch-readiness pass focused on production hardening rather than new product workflow scope.
+- Hardened the application response posture in:
+  - `next.config.ts`
+- Added:
+  - `poweredByHeader: false`
+  - baseline security headers
+  - initial `Content-Security-Policy-Report-Only` coverage for Google/Firebase, Stripe, GitHub, and Resend surfaces
+
+### 29. Public Metadata, Assets, And Route Surface Completed
+- Added shared site metadata support in:
+  - `src/lib/site.ts`
+  - `src/app/public-metadata.ts`
+- Expanded `src/app/layout.tsx` with:
+  - `metadataBase`
+  - canonical metadata
+  - Open Graph metadata
+  - Twitter card metadata
+  - viewport theme color
+  - manifest and icon metadata
+  - SoftwareApplication JSON-LD
+- Added metadata routes in:
+  - `src/app/robots.ts`
+  - `src/app/sitemap.ts`
+  - `src/app/manifest.ts`
+- Added branded public assets in `public/`:
+  - `og.png`
+  - `icon-192.png`
+  - `icon-512.png`
+  - `apple-touch-icon.png`
+- Added branded not-found handling in:
+  - `src/app/not-found.tsx`
+
+### 30. Public Funnel Cache And Form Hardening Completed
+- Marked the public routes as dynamic so feature-flag flips and redirects are not stuck behind stale prerender behavior:
+  - `src/app/page.tsx`
+  - `src/app/pricing/page.tsx`
+  - `src/app/signup/page.tsx`
+  - `src/app/login/page.tsx`
+  - `src/app/waitlist/page.tsx`
+- Added page-level metadata exports for those routes so canonical and social metadata stays aligned with the live public funnel.
+- Added autofill hints for public founder forms:
+  - founder names
+  - founder emails
+  - workspace names
+  - invite-token input suppression via `autoComplete="off"`
+
+### 31. Runtime Health And Auth Route Semantics Completed
+- Extended runtime readiness support in:
+  - `src/lib/server/runtime-config.ts`
+- Added:
+  - typed runtime health snapshot support
+  - `getRuntimeHealthSnapshot()`
+- Added the public health endpoint in:
+  - `src/app/api/healthz/route.ts`
+- Changed Firebase session-route behavior in:
+  - `src/app/api/auth/firebase/session/route.ts`
+- The auth endpoint now:
+  - returns `501` with neutral copy when Firebase is intentionally unavailable
+  - returns JSON `405` for unsupported methods
+  - preserves the existing invite-scoped, self-serve, and regular Firebase login paths
+
+### 32. Admin Readiness Visibility Completed
+- Extended the admin presentation in:
+  - `src/components/admin-sections.tsx`
+- Added operator-facing readiness visibility for:
+  - visible public plans
+  - Firebase readiness
+  - checkout readiness
+  - automation readiness
+  - direct `/api/healthz` access
+
+### 33. Regression Coverage Expansion Completed
+- Added or updated repository coverage in:
+  - `next.config.test.ts`
+  - `src/app/metadata-routes.test.ts`
+  - `src/app/api/healthz/route.test.ts`
+  - `src/app/api/auth/firebase/session/route.test.ts`
+  - `src/app/page.test.tsx`
+  - `src/app/pricing/page.test.tsx`
+  - `src/app/signup/page.test.tsx`
+  - `src/app/login/page.test.tsx`
+  - `src/app/waitlist/page.test.tsx`
+  - `e2e/public-signup.spec.ts`
+- Added explicit verification for:
+  - security-header config
+  - metadata-route generation
+  - health-endpoint degraded and healthy response semantics
+  - Firebase disabled `501` handling
+  - JSON `405` auth-route method handling
+  - public-page metadata exports
+  - Playwright stability after public-route cache and redirect changes
+
+### 34. Verification Completed For The Launch-Readiness Pass
+- Confirmed successful execution in the workspace of:
+  - `npm test`
+  - `npm run lint`
+  - `npm run build`
+  - `npm run test:e2e`
+- Confirmed the repository now passes with:
+  - `134` passing Vitest tests
+  - `9` passing Playwright end-to-end tests
+
+### 35. Production Deployment And Live Verification Completed
+- Submitted a Cloud Build deployment using:
+  - image tag `deploy-20260420-2`
+- Confirmed the new production revision:
+  - `microsaas-factory-00007-4t6`
+- Confirmed the live site now serves:
+  - the new security headers
+  - no `X-Powered-By`
+  - `/robots.txt`
+  - `/sitemap.xml`
+  - `/manifest.webmanifest`
+  - `/api/healthz`
+- Confirmed live route semantics:
+  - `GET /api/auth/firebase/session` returns JSON `405`
+  - `POST /api/auth/firebase/session` returns JSON `501` while Firebase remains unconfigured
+  - `GET /api/healthz` returns JSON `503` with accurate degraded rollout state
+  - `GET /pricing` now redirects with no-store semantics instead of long-lived cache semantics
+
+### 36. DNS And Production Platform Follow-Up Completed
+- Verified the active Cloud Run domain mapping for:
+  - `microsaasfactory.io`
+- Added Cloud DNS CAA records in the `microsaasfactory-io` managed zone:
+  - `0 issue "pki.goog"`
+  - `0 issuewild "pki.goog"`
+- Confirmed production scheduler jobs remain enabled for:
+  - validation CRM
+  - live ops
+- Confirmed the existing automation alert policy remains present in the project.
+
+### 37. Remaining Production Blockers Narrowed
+- Real production self-serve is still blocked by missing external inputs, not missing application code:
+  - Firebase client/admin envs are still absent from Cloud Run
+  - Stripe platform secret, webhook secret, and real plan price map are still absent from Cloud Run
+  - visible public plans are still not populated in production data
+  - DMARC / SPF / DKIM were not published because the required real mailbox and Resend-issued DNS values were not present in this workspace
+  - the apex HTTP to HTTPS hop still returns `302`, which appears to be controlled outside the repository
+
+### 38. Current Codebase Status After This Update
+- The repository now contains the completed self-serve launch-readiness code path for:
+  - headers
+  - metadata
+  - health monitoring
+  - auth-route semantics
+  - dynamic public-route behavior
+  - branded launch assets
+- The production deployment now reflects those repository changes.
+- The remaining path to real self-serve production enablement is now operational and configuration-driven rather than code-driven.

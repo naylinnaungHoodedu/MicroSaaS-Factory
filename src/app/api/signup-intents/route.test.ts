@@ -29,7 +29,7 @@ describe("POST /api/signup-intents", () => {
           founderName: "Founder Name",
           email: "founder@example.com",
           workspaceName: "Factory Lab",
-          planId: "beta-invite",
+          planId: "growth",
         }),
       }),
     );
@@ -39,7 +39,7 @@ describe("POST /api/signup-intents", () => {
       founderName: "Founder Name",
       email: "founder@example.com",
       workspaceName: "Factory Lab",
-      planId: "beta-invite",
+      planId: "growth",
     });
     expect(await response.json()).toEqual({
       signupIntent: {
@@ -60,7 +60,7 @@ describe("POST /api/signup-intents", () => {
           founderName: "Founder Name",
           email: "founder@example.com",
           workspaceName: "Factory Lab",
-          planId: "beta-invite",
+          planId: "growth",
         }),
       }),
     );

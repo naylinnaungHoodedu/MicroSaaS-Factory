@@ -1,5 +1,6 @@
 import "server-only";
 
+import { LEGACY_INVITE_ONLY_FEATURE_FLAGS } from "@/lib/constants";
 import { isFirebaseClientConfigured } from "@/lib/firebase/config";
 import type { FeatureFlags, PlatformPlan } from "@/lib/types";
 import { getDatabaseBackendInfo, readDatabase } from "@/lib/server/db";
@@ -10,7 +11,9 @@ export type BillingInterval = "monthly" | "annual";
 export type RuntimeReadinessCheckId =
   | "encryption"
   | "database"
-  | "firebase"
+  | "pricing"
+  | "signup_intent"
+  | "self_serve"
   | "checkout"
   | "automation";
 
@@ -35,11 +38,26 @@ export type RuntimeReadiness = {
   productionSafe: boolean;
   publicPlans: PlatformPlan[];
   publicPlanIdsMissingCheckoutPrices: string[];
+  pricingReady: boolean;
+  signupIntentReady: boolean;
   firebaseReadyForSelfServe: boolean;
+  selfServeReady: boolean;
   checkoutReady: boolean;
   automationReady: boolean;
   checks: RuntimeReadinessCheck[];
   blockingIssues: string[];
+};
+
+export type RuntimeHealthReadiness = Pick<
+  RuntimeReadiness,
+  "automationReady" | "checkoutReady" | "pricingReady" | "selfServeReady" | "signupIntentReady"
+>;
+
+export type RuntimeHealthSnapshot = {
+  appUrl: string | null;
+  generatedAt: string;
+  ok: boolean;
+  readiness: RuntimeHealthReadiness;
 };
 
 type StripePriceMapEntry = {
@@ -257,13 +275,13 @@ export function evaluateRuntimeReadiness(input: {
     })
     .map((plan) => plan.id);
 
-  const signupHasVisiblePlan = publicPlans.length > 0;
-  const publicExposureWithoutPlans =
-    (input.flags.publicSignupEnabled || input.flags.platformBillingEnabled) &&
-    !signupHasVisiblePlan;
-  const checkoutMustBeReady =
-    input.flags.checkoutEnabled || input.flags.platformBillingEnabled;
-  const firebaseReadyForSelfServe = signupHasVisiblePlan && firebase.firebaseReady;
+  const pricingReady = publicPlans.length > 0;
+  const signupIntentReady = pricingReady;
+  const pricingMustBeReady = input.flags.platformBillingEnabled;
+  const signupIntentMustBeReady = input.flags.publicSignupEnabled;
+  const checkoutMustBeReady = input.flags.checkoutEnabled;
+  const firebaseReadyForSelfServe = signupIntentReady && firebase.firebaseReady;
+  const selfServeReady = firebaseReadyForSelfServe;
   const checkoutReady =
     stripeSecretConfigured &&
     stripeWebhookConfigured &&
@@ -292,14 +310,42 @@ export function evaluateRuntimeReadiness(input: {
           firestore.detail,
           environment === "production",
         ),
-    firebaseReadyForSelfServe
-      ? buildCheck("firebase", "Firebase Auth", "ready", firebase.detail)
+    pricingReady
+      ? buildCheck(
+          "pricing",
+          "Public pricing",
+          "ready",
+          `Pricing can be exposed with ${publicPlans.length} visible public plan${publicPlans.length === 1 ? "" : "s"}.`,
+        )
       : buildCheck(
-          "firebase",
-          "Firebase Auth",
+          "pricing",
+          "Public pricing",
+          pricingMustBeReady ? "blocked" : "warning",
+          "No visible public plans are available for public pricing.",
+          pricingMustBeReady,
+        ),
+    signupIntentReady
+      ? buildCheck(
+          "signup_intent",
+          "Signup intent",
+          "ready",
+          "Operator-reviewed signup intent can be exposed from the current public plan catalog.",
+        )
+      : buildCheck(
+          "signup_intent",
+          "Signup intent",
+          signupIntentMustBeReady ? "blocked" : "warning",
+          "At least one visible public plan is required before public signup intent can be opened.",
+          signupIntentMustBeReady,
+        ),
+    selfServeReady
+      ? buildCheck("self_serve", "Self-serve activation", "ready", firebase.detail)
+      : buildCheck(
+          "self_serve",
+          "Self-serve activation",
           input.flags.selfServeProvisioningEnabled ? "blocked" : "warning",
-          !signupHasVisiblePlan
-            ? "No visible public plans are available for self-serve signup."
+          !signupIntentReady
+            ? "Self-serve activation requires at least one visible public plan."
             : firebase.detail,
           input.flags.selfServeProvisioningEnabled,
         ),
@@ -313,7 +359,7 @@ export function evaluateRuntimeReadiness(input: {
       : buildCheck(
           "checkout",
           "Stripe checkout",
-          checkoutMustBeReady || publicExposureWithoutPlans ? "blocked" : "warning",
+          checkoutMustBeReady ? "blocked" : "warning",
           !publicPlans.length
             ? "No visible public plans are available for pricing or checkout."
             : [
@@ -327,7 +373,7 @@ export function evaluateRuntimeReadiness(input: {
               ]
                 .filter(Boolean)
                 .join(" "),
-          checkoutMustBeReady || publicExposureWithoutPlans,
+          checkoutMustBeReady,
         ),
     automationReady
       ? buildCheck(
@@ -358,7 +404,10 @@ export function evaluateRuntimeReadiness(input: {
     productionSafe: blockingIssues.length === 0,
     publicPlans,
     publicPlanIdsMissingCheckoutPrices,
+    pricingReady,
+    signupIntentReady,
     firebaseReadyForSelfServe,
+    selfServeReady,
     checkoutReady,
     automationReady,
     checks,
@@ -377,19 +426,35 @@ export function assertFeatureFlagReadiness(input: {
   const errors: string[] = [];
 
   if (
-    (input.nextFlags.publicSignupEnabled || input.nextFlags.platformBillingEnabled) &&
-    readiness.publicPlans.length === 0
+    input.nextFlags.platformBillingEnabled &&
+    !readiness.pricingReady
   ) {
-    errors.push("At least one platform plan must be visible before public signup or pricing can be enabled.");
+    const pricingCheck = readiness.checks.find((check) => check.id === "pricing");
+    errors.push(
+      pricingCheck?.detail ??
+        "At least one platform plan must be visible before public pricing can be enabled.",
+    );
+  }
+
+  if (input.nextFlags.publicSignupEnabled && !readiness.signupIntentReady) {
+    const signupCheck = readiness.checks.find((check) => check.id === "signup_intent");
+    errors.push(
+      signupCheck?.detail ??
+        "At least one platform plan must be visible before public signup intent can be enabled.",
+    );
   }
 
   if (input.nextFlags.selfServeProvisioningEnabled && !input.nextFlags.publicSignupEnabled) {
     errors.push("Self-serve provisioning requires public signup to be enabled.");
   }
 
-  if (input.nextFlags.selfServeProvisioningEnabled && !readiness.firebaseReadyForSelfServe) {
-    const firebaseCheck = readiness.checks.find((check) => check.id === "firebase");
-    errors.push(firebaseCheck?.detail ?? "Firebase Auth is not ready for self-serve provisioning.");
+  if (input.nextFlags.selfServeProvisioningEnabled && !readiness.selfServeReady) {
+    const selfServeCheck = readiness.checks.find((check) => check.id === "self_serve");
+    errors.push(
+      `Self-serve activation is not ready. ${
+        selfServeCheck?.detail ?? "Public provisioning cannot be enabled yet."
+      }`,
+    );
   }
 
   if (input.nextFlags.checkoutEnabled && !input.nextFlags.platformBillingEnabled) {
@@ -415,15 +480,7 @@ export async function assertProductionRuntimeReady() {
     return;
   }
 
-  const baselineFlags: FeatureFlags = {
-    inviteOnlyBeta: true,
-    publicWaitlist: true,
-    publicSignupEnabled: false,
-    selfServeProvisioningEnabled: false,
-    checkoutEnabled: false,
-    platformBillingEnabled: false,
-    proAiEnabled: false,
-  };
+  const baselineFlags: FeatureFlags = LEGACY_INVITE_ONLY_FEATURE_FLAGS;
   const baselineReadiness = evaluateRuntimeReadiness({
     flags: baselineFlags,
     plans: [],
@@ -446,4 +503,25 @@ export async function assertProductionRuntimeReady() {
       `MicroSaaS Factory production boot blocked. ${readiness.blockingIssues.join(" ")}`,
     );
   }
+}
+
+export async function getRuntimeHealthSnapshot(): Promise<RuntimeHealthSnapshot> {
+  const database = await readDatabase();
+  const readiness = evaluateRuntimeReadiness({
+    flags: database.globalFeatureFlags,
+    plans: database.platformPlans,
+  });
+
+  return {
+    appUrl: getMicrosaasFactoryAppUrl() || null,
+    generatedAt: new Date().toISOString(),
+    ok: readiness.productionSafe,
+    readiness: {
+      pricingReady: readiness.pricingReady,
+      signupIntentReady: readiness.signupIntentReady,
+      checkoutReady: readiness.checkoutReady,
+      selfServeReady: readiness.selfServeReady,
+      automationReady: readiness.automationReady,
+    },
+  };
 }

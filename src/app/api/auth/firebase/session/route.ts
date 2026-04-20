@@ -12,13 +12,25 @@ import {
   loginWithFirebaseIdentity,
 } from "@/lib/server/services";
 
+function methodNotAllowed() {
+  return NextResponse.json(
+    { error: "Method Not Allowed" },
+    {
+      status: 405,
+      headers: {
+        Allow: "POST",
+      },
+    },
+  );
+}
+
 export async function POST(request: Request) {
   const auth = getAuthModeInfo();
 
   if (!auth.firebaseEnabled) {
     return NextResponse.json(
-      { error: "Firebase sign-in is not configured for this environment." },
-      { status: 503 },
+      { error: "Sign-in is currently unavailable." },
+      { status: 501 },
     );
   }
 
@@ -83,3 +95,8 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const GET = methodNotAllowed;
+export const PUT = methodNotAllowed;
+export const PATCH = methodNotAllowed;
+export const DELETE = methodNotAllowed;

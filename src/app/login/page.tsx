@@ -1,10 +1,21 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
+import { buildPublicPageMetadata } from "@/app/public-metadata";
 import { FirebaseLoginPanel } from "@/components/firebase-login-panel";
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
 import { loginAction } from "@/lib/server/actions";
 import { getPublicFunnelState } from "@/lib/server/funnel";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildPublicPageMetadata({
+  title: "Founder Login",
+  description:
+    "Sign in to a MicroSaaS Factory founder workspace with invite access or Firebase when enabled.",
+  path: "/login",
+});
 
 export default async function LoginPage({
   searchParams,
@@ -14,6 +25,7 @@ export default async function LoginPage({
   const resolved = await searchParams;
   const funnel = await getPublicFunnelState();
   const selfServeEnabled = funnel.availabilityMode === "self_serve";
+  const signupIntentEnabled = funnel.availabilityMode === "signup_intent";
 
   return (
     <main className="page-shell py-10">
@@ -28,12 +40,16 @@ export default async function LoginPage({
               <p className="mt-3 text-lg font-semibold text-white">
                 {funnel.auth.firebaseEnabled
                   ? "Invite tokens and Firebase both remain available."
-                  : "Invite tokens remain the active login contract."}
+                  : signupIntentEnabled
+                    ? "Public signup is open for operator review, but founder access still starts with an invite."
+                    : "Invite tokens remain the active login contract."}
               </p>
             </div>
             <p className="leading-7 text-slate-300">
               {selfServeEnabled
                 ? "Self-serve founders can return here after workspace provisioning, while existing invite links still remain valid."
+                : signupIntentEnabled
+                  ? "New founders can submit pricing-backed signup intent publicly, but workspace access remains operator-issued until a real invite or self-serve activation exists."
                 : "The login page stays aligned with the invite-beta workflow until public self-serve activation is truly ready."}
             </p>
           </div>
@@ -48,6 +64,8 @@ export default async function LoginPage({
         description={
           selfServeEnabled
             ? "Invite access still works, and self-serve founders can also sign in here once their workspace has been provisioned."
+            : signupIntentEnabled
+              ? "Public signup intent is visible, but founder workspace access is still issued deliberately through invites or existing provisioned identities."
             : "Invite-only access remains the gate. If your invite email includes a direct invite link, that is the recommended entrypoint. This page keeps Firebase and invite-token login equally available."
         }
       >
@@ -68,11 +86,15 @@ export default async function LoginPage({
             title={
               selfServeEnabled
                 ? "Invite access and self-serve founder return paths now share one login surface."
+                : signupIntentEnabled
+                  ? "Signup is public, but founder login remains invite-led until activation is approved."
                 : "Invite-based access remains the current founder contract."
             }
             detail={
               selfServeEnabled
                 ? "Firebase is the primary path for self-serve provisioning and repeat founder access, while manual invite-token entry still remains available."
+                : signupIntentEnabled
+                  ? "Operator-reviewed signup can capture demand publicly, but workspace creation still completes through invite issuance or an existing provisioned identity."
                 : "Workspace creation still requires an issued invite, even when Firebase sign-in is active in this environment."
             }
           >
@@ -108,11 +130,22 @@ export default async function LoginPage({
             </div>
             <label className="space-y-2">
               <span className="text-sm text-slate-300">Invite email</span>
-              <input name="email" type="email" required placeholder="founder@company.com" />
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="founder@company.com"
+                autoComplete="email"
+              />
             </label>
             <label className="space-y-2">
               <span className="text-sm text-slate-300">Invite token</span>
-              <input name="token" required placeholder="Paste your invite token" />
+              <input
+                name="token"
+                required
+                placeholder="Paste your invite token"
+                autoComplete="off"
+              />
             </label>
             <button type="submit" className="button-primary">
               Enter workspace

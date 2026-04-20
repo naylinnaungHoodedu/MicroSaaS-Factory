@@ -60,10 +60,10 @@ const emptyDatabase = {
   globalFeatureFlags: {
     inviteOnlyBeta: true,
     publicWaitlist: true,
-    publicSignupEnabled: false,
+    publicSignupEnabled: true,
     selfServeProvisioningEnabled: false,
     checkoutEnabled: false,
-    platformBillingEnabled: false,
+    platformBillingEnabled: true,
     proAiEnabled: false,
   },
 };

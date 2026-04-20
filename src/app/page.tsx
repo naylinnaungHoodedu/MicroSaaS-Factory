@@ -1,8 +1,20 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
+import { buildPublicPageMetadata } from "@/app/public-metadata";
 import { Section, StatCard } from "@/components/ui";
 import { getPublicFunnelState } from "@/lib/server/funnel";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildPublicPageMetadata({
+  title: "MicroSaaS Factory",
+  description:
+    "Invite-beta founder operating system for research, validation, launch gating, and connected ops.",
+  path: "/",
+  useAbsoluteTitle: true,
+});
 
 export default async function Home() {
   const funnel = await getPublicFunnelState();

@@ -24,7 +24,7 @@ vi.mock("@/lib/server/funnel", () => ({
   getPublicFunnelState: getPublicFunnelStateMock,
 }));
 
-import Home from "./page";
+import Home, { metadata as homeMetadata } from "./page";
 
 function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
   return {
@@ -39,15 +39,15 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
       firebaseProjectId: null,
       firebaseError: null,
     },
-    availabilityMode: "waitlist",
+    availabilityMode: "signup_intent",
     checkoutVisible: false,
     flags: {
       inviteOnlyBeta: true,
       publicWaitlist: true,
-      publicSignupEnabled: false,
+      publicSignupEnabled: true,
       selfServeProvisioningEnabled: false,
       checkoutEnabled: false,
-      platformBillingEnabled: false,
+      platformBillingEnabled: true,
       proAiEnabled: false,
     },
     founder: {
@@ -62,38 +62,63 @@ function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
       waitlistCount: 7,
       workspaceCount: 3,
     },
-    plans: [],
-    pricingAction: null,
-    pricingVisible: false,
+    plans: [
+      {
+        id: "growth",
+        name: "Growth",
+        hidden: false,
+        monthlyPrice: 99,
+        annualPrice: 990,
+        features: ["Single founder workspace"],
+      },
+    ],
+    pricingAction: {
+      href: "/pricing",
+      label: "See pricing",
+      kind: "pricing",
+    },
+    pricingVisible: true,
     primaryAction: {
-      href: "/waitlist",
-      label: "Request invite",
-      kind: "waitlist",
+      href: "/signup",
+      label: "Start signup",
+      kind: "signup",
     },
     readiness: {
       environment: "development",
       productionSafe: true,
-      publicPlans: [],
+      publicPlans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder workspace"],
+        },
+      ],
       publicPlanIdsMissingCheckoutPrices: [],
+      pricingReady: true,
+      signupIntentReady: true,
       firebaseReadyForSelfServe: false,
+      selfServeReady: false,
       checkoutReady: false,
       automationReady: false,
       checks: [],
       blockingIssues: [],
     },
     secondaryAction: {
-      href: "/login",
-      label: "Founder login",
-      kind: "login",
+      href: "/pricing",
+      label: "See pricing",
+      kind: "pricing",
     },
-    signupAvailable: false,
+    signupAvailable: true,
     signupIntent: null,
     summary: {
-      eyebrow: "Invite Beta",
-      title: "Access stays operator-controlled while the stack hardens.",
+      eyebrow: "Guided Signup",
+      title: "Capture founder demand now, provision deliberately later.",
       detail:
-        "Invite tokens remain the active entrypoint because public signup is still closed in this environment.",
-      tone: "amber",
+        "Public signup is collecting the founder, workspace, and plan choice without skipping operator review.",
+      tone: "cyan",
     },
     waitlistOpen: true,
     ...overrides,
@@ -110,9 +135,21 @@ describe("/ page", () => {
 
     const html = renderToStaticMarkup(await Home());
 
-    expect(html).toContain("Access stays operator-controlled while the stack hardens.");
-    expect(html).toContain("Request invite");
+    expect(html).toContain("Capture founder demand now, provision deliberately later.");
+    expect(html).toContain("Start signup");
+    expect(html).toContain("See pricing");
     expect(html).toContain("Workspaces");
     expect(html).toContain(">3<");
+  });
+
+  it("exports canonical public metadata for the homepage", () => {
+    expect(homeMetadata.alternates?.canonical).toBe("/");
+    expect(homeMetadata.openGraph?.images).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "/og.png",
+        }),
+      ]),
+    );
   });
 });

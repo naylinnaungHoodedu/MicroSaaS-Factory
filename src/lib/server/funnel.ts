@@ -224,13 +224,13 @@ export function derivePublicFunnelState(source: PublicFunnelSource): PublicFunne
   const signupAvailable = availabilityMode !== "waitlist" && source.plans.length > 0;
   const waitlistOpen = source.flags.publicWaitlist || availabilityMode === "waitlist";
   const activationReady =
-    availabilityMode === "self_serve" && source.readiness.firebaseReadyForSelfServe;
+    availabilityMode === "self_serve" && source.readiness.selfServeReady;
   const activationDetail =
     availabilityMode !== "self_serve"
       ? "Activation follows the current operator-controlled invite or signup-intent flow."
       : activationReady
         ? "Firebase activation is ready for self-serve workspace provisioning."
-        : source.readiness.checks.find((check) => check.id === "firebase")?.detail ??
+        : source.readiness.checks.find((check) => check.id === "self_serve")?.detail ??
           "Firebase activation is not ready for self-serve provisioning.";
   const primaryAction = buildPrimaryAction({
     availabilityMode,

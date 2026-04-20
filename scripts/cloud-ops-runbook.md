@@ -38,11 +38,45 @@ This creates:
 - A Cloud Monitoring alert policy that fires when the metric is greater than zero
 - An email notification channel if `-NotificationEmail` is provided and no matching channel already exists
 
+## Public Edge
+
+The staged commercialization rollout assumes the public edge is verified independently from the app build:
+
+1. Keep at least one visible public plan live so pricing and signup intent can remain healthy.
+2. Leave `checkoutEnabled=false` until Stripe checkout is manually exercised against production.
+3. Keep `selfServeProvisioningEnabled=false` until Firebase client and admin readiness are both green.
+
+Run the verification script after each production rollout:
+
+```powershell
+pwsh ./scripts/verify-public-edge.ps1 `
+  -Domain microsaasfactory.io `
+  -ExpectPermanentRedirect `
+  -ExpectLongHsts
+```
+
+The script checks:
+
+- `https://<domain>/` response headers, including HSTS
+- `http://<domain>/` redirect posture
+- `robots.txt`, `sitemap.xml`, and `/api/healthz`
+- DNS visibility for TXT, MX, DMARC, and CAA records
+
+If the public edge still returns `302`, do not set `MICROSAAS_FACTORY_LONG_HSTS=1` yet. Promote long HSTS only after the permanent `301` redirect is confirmed.
+
+Suggested DNS posture for the production domain:
+
+- SPF TXT record for the active transactional sender
+- Provider-issued DKIM records
+- `_dmarc` TXT with `p=quarantine`
+- CAA records for the active certificate authority
+
 ## Manual verification
 
 1. Trigger both internal job routes once with the automation bearer key.
 2. Confirm the `microsaasFactoryState/automationRuns` document exists in Firestore and that its `value` array receives the new run entries.
 3. Force one partial or failed run and confirm:
-   - The admin console shows the alert banner and recent-run status.
-   - Cloud Logging receives the structured warning or failure event.
-   - The log-based metric increments and the alert policy opens.
+  - The admin console shows the alert banner and recent-run status.
+  - Cloud Logging receives the structured warning or failure event.
+  - The log-based metric increments and the alert policy opens.
+4. Confirm `/api/healthz` returns HTTP 200 for the current staged rollout, even when checkout and self-serve remain disabled.
