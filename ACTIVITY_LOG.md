@@ -731,3 +731,177 @@ This addendum records the completed launch-readiness hardening pass performed af
 - The remaining work to open real production self-serve is now narrowed to external credential, pricing, and DNS-email-auth inputs rather than missing application code.
 
 *Addendum logged on April 20, 2026 after the self-serve launch-readiness implementation, verification pass, Cloud Build deployment, live production verification, and safe DNS follow-up work.*
+
+---
+
+## April 20, 2026 Final Deployment Integration Addendum
+
+> **Session window**: 5:15 PM – 9:04 PM EDT
+> **Engineer**: Antigravity AI Assistant
+> **Purpose**: Finalize deployment of all completed activities to the production environment at `https://microsaasfactory.io`
+
+This addendum records the final deployment integration session where all previously completed but uncommitted work was verified, committed, pushed to the GitHub repository, deployed to Google Cloud Run via Cloud Build, and comprehensively verified on production.
+
+### Deep Codebase Study Performed
+
+- Reviewed all 150+ source files across the entire Next.js 16 / React 19 / Firebase / Firestore application
+- Analyzed the live production site at `microsaasfactory.io` in its pre-deployment state (revision `microsaas-factory-00007-4t6`)
+- Read both activity logs totalling 1,932 lines of development history from April 15–20, 2026
+- Reviewed the full infrastructure configuration including Docker, Cloud Build, Cloud Run, Cloud Scheduler, Monitoring, and Secret Manager
+- Examined all public routes, API routes, server actions, the service domain facade, funnel state model, runtime readiness system, and all test suites
+- Inspected the live production endpoints and verified security headers, robots.txt, sitemap.xml, manifest, and health endpoint behavior
+
+### Pre-Deployment Baseline State Identified
+
+- Identified **49 uncommitted files** in the working tree (33 modified, 16 new/untracked)
+- These files represented the completed work from the latest development sessions:
+  - Security headers and CSP-Report-Only policy (`next.config.ts`, `next.config.test.ts`)
+  - Centralized public metadata with Open Graph, Twitter cards, and JSON-LD (`src/lib/site.ts`, `src/app/public-metadata.ts`, `src/app/layout.tsx`)
+  - SEO metadata routes (`src/app/robots.ts`, `src/app/sitemap.ts`, `src/app/manifest.ts`)
+  - Branded PWA assets (`public/og.png`, `public/icon-192.png`, `public/icon-512.png`, `public/apple-touch-icon.png`)
+  - Branded 404 page (`src/app/not-found.tsx`)
+  - Runtime health endpoint (`src/app/api/healthz/route.ts`, `src/app/api/healthz/route.test.ts`)
+  - Unified public funnel state model (`src/lib/server/funnel.ts`, `src/lib/server/funnel.test.ts`)
+  - Reusable public-ui components (`src/components/public-ui.tsx`)
+  - Public page rewiring to shared funnel contract (`page.tsx`, `login/page.tsx`, `pricing/page.tsx`, `signup/page.tsx`, `waitlist/page.tsx`)
+  - Firebase session route hardening (`src/app/api/auth/firebase/session/route.ts`)
+  - Runtime readiness model (`src/lib/server/runtime-config.ts`)
+  - Admin console launch-readiness visibility (`src/components/admin-sections.tsx`, `src/components/admin-sections.test.tsx`)
+  - Service core and database updates (`src/lib/server/services-core.ts`, `src/lib/server/db.ts`)
+  - Edge verification and operations scripts (`scripts/verify-public-edge.ps1`, `scripts/cloud-ops-runbook.md`)
+  - Expanded test coverage across 12 test files
+  - Updated documentation (`ACTIVITY_LOG.md`, `DEVELOPMENT_ACTIVITY_LOG.md`, `README.md`, `.env.example`)
+  - Audit report document (`MicroSaaSFactory_AuditReport.docx`)
+
+### Local Verification Completed Before Deployment
+
+| Check | Command | Result |
+|-------|---------|--------|
+| Unit and route tests | `npm test` (Vitest) | **141 tests passing** across 26 test files ✅ |
+| Linting | `npm run lint` (ESLint) | **Clean, zero errors** ✅ |
+| Production build | `npm run build` (Next.js 16 Turbopack) | **Clean build — 23 routes, zero errors** ✅ |
+
+### Git Operations Completed
+
+| Step | Detail |
+|------|--------|
+| Stage | `git add -A` — 49 files staged |
+| Commit | Committed on branch `codex/publish-launch-hardening-and-funnel-refactor` with detailed commit message |
+| Merge | Fast-forward merged to `main` — 78 file changes, +12,388 / −5,671 lines |
+| Push | `git push origin main` → `7b37b15..0b782e2 main -> main` |
+| Verify | `git status` → clean working tree, `main` up to date with `origin/main` |
+
+### Cloud Build Deployment Completed
+
+| Step | Status | Detail |
+|------|--------|--------|
+| Source upload | ✅ | 149 files, 4.6 MiB archive to GCS |
+| Step 0: `npm ci` | ✅ | 647 packages installed |
+| Step 1: `npm run lint` | ✅ | ESLint clean |
+| Step 2: `npm test` | ✅ | 141/141 tests passing |
+| Step 3: `npm run build` | ✅ | 23 routes compiled successfully |
+| Step 4: Docker build | ✅ | Multi-stage image built successfully |
+| Step 5: Docker push | ✅ | Pushed to Artifact Registry with tag `deploy-20260420-3` |
+| Step 6: Cloud Run deploy | ✅ | New revision deployed and serving 100% traffic |
+| Build duration | | 6 minutes total |
+| Build ID | | `262195be-8069-475c-b45b-5cec5303ac12` |
+| Image digest | | `sha256:3d8d8e8e24f132578b3759919d1c56b07cd67bf3845eda8d68a31cfdbba38f33` |
+
+### New Production Revision Details
+
+| Property | Value |
+|----------|-------|
+| Revision name | `microsaas-factory-00008-kvj` |
+| Image tag | `deploy-20260420-3` |
+| Traffic allocation | 100% |
+| Service URL | `https://microsaas-factory-54872079170.us-central1.run.app` |
+| Custom domain | `https://microsaasfactory.io` |
+
+### Comprehensive Production Verification Completed
+
+#### Route Verification
+
+| Route | Status | Detail |
+|-------|--------|--------|
+| `GET /` (Homepage) | **200** ✅ | Renders Guided Signup hero, stats (Workspaces: 0, Products: 0, Waitlist: 0), 4-step journey rail, workflow spine, info cards |
+| `GET /waitlist` | **200** ✅ | Request invite form with Name, Email, Current bottleneck, Current stack fields |
+| `GET /login` | **200** ✅ | Founder login with invite-token form (Email + Token) |
+| `GET /pricing` | **200** ✅ | Growth plan displayed at $99/month, $990/year (pricingReady: true in production Firestore) |
+| `GET /signup` | **200** ✅ | Guided signup intent form with founder name, email, workspace name, and plan selection |
+| `GET /nonexistent-page` | **404** ✅ | Branded not-found page with navigation links |
+| `GET /api/healthz` | **200** ✅ | `{"ok": true, "readiness": {"pricingReady": true, "signupIntentReady": true, "checkoutReady": false, "selfServeReady": false, "automationReady": true}}` |
+| `GET /robots.txt` | **200** ✅ | Correct directives: Allow /, Disallow /admin, /app, /api |
+| `GET /sitemap.xml` | **200** ✅ | Valid sitemap with 3 URLs (/, /login, /waitlist) |
+| `GET /manifest.webmanifest` | **200** ✅ | Valid PWA manifest with name, icons, theme color |
+| `GET /api/auth/firebase/session` | **405** ✅ | Returns JSON 405 for unsupported GET method |
+
+#### Security Header Verification
+
+| Header | Value | Status |
+|--------|-------|--------|
+| `Strict-Transport-Security` | `max-age=86400` | ✅ Present |
+| `X-Content-Type-Options` | `nosniff` | ✅ Present |
+| `X-Frame-Options` | `DENY` | ✅ Present |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | ✅ Present |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), browsing-topics=()` | ✅ Present |
+| `Cross-Origin-Opener-Policy` | `same-origin-allow-popups` | ✅ Present |
+| `Content-Security-Policy-Report-Only` | Full CSP covering Google/Firebase, Stripe, GitHub, Resend | ✅ Present |
+| `X-Powered-By` | — | ✅ Correctly absent |
+
+#### Production Funnel State Verified
+
+The production Firestore database has the following active configuration:
+
+| Funnel Property | Value | Source |
+|-----------------|-------|--------|
+| Availability mode | **Guided Signup** (signup_intent) | `publicSignupEnabled: true`, `selfServeProvisioningEnabled: false` |
+| Pricing visibility | **Visible** | `platformBillingEnabled: true`, 1 visible Growth plan |
+| Checkout visibility | **Locked** | `checkoutEnabled: false` |
+| Activation readiness | **Operator-controlled** | Firebase not configured on Cloud Run |
+| Automation | **Operational** | Both scheduler jobs enabled |
+
+#### Infrastructure Verification
+
+| Resource | Status |
+|----------|--------|
+| Cloud Run revision `microsaas-factory-00008-kvj` | ✅ Active, 100% traffic |
+| Cloud Scheduler: `microsaas-factory-validation-crm` | ✅ ENABLED, every 4 hours |
+| Cloud Scheduler: `microsaas-factory-live-ops` | ✅ ENABLED, every 6 hours |
+| GitHub repository `naylinnaungHoodedu/MicroSaaS-Factory` | ✅ `main` at commit `0b782e2` |
+| Clean working tree | ✅ Zero uncommitted changes |
+
+#### Visual Audit Completed
+
+- Browser visual audits performed on all 6 public pages
+- Production site renders with professional dark-mode design
+- No broken layout, missing assets, or rendering errors on any page
+- All forms, buttons, navigation links, and info cards render correctly
+- No JavaScript console errors detected
+
+### Repository Commit History After This Session
+
+| Commit | Message |
+|--------|---------|
+| `0b782e2` | Deploy launch-readiness hardening, SEO metadata, health endpoint, and public funnel unification |
+| `c1381fa` | Refactor public funnel and harden production rollout |
+| `7b37b15` | Initial commit: MicroSaaS Factory - Founder Operating System |
+
+### Current State Summary
+
+- The production site at `https://microsaasfactory.io` is now running revision `microsaas-factory-00008-kvj` with all completed development work deployed
+- The GitHub repository at `https://github.com/naylinnaungHoodedu/MicroSaaS-Factory` is synchronized with the local repository
+- All 141 automated tests pass both locally and in the Cloud Build pipeline
+- The production health endpoint returns `ok: true` with accurate readiness details
+- The public funnel is operating in Guided Signup mode with pricing visible and checkout locked
+- Both Cloud Scheduler automation jobs remain active
+- No code-level work remains for the current feature scope; remaining self-serve enablement depends on external credential provisioning (Firebase, Stripe)
+
+### Remaining External Dependencies (Unchanged)
+
+These items are operational inputs, not missing application code:
+- Firebase client and admin credentials for Cloud Run
+- Stripe platform keys and webhook secret for Cloud Run
+- DMARC / SPF / DKIM DNS records for the production sending domain
+- Feature flag flips for self-serve provisioning and checkout (gated on the above)
+
+*Addendum logged on April 20, 2026 at 9:04 PM EDT after the final deployment integration, comprehensive production verification, and GitHub synchronization.*
