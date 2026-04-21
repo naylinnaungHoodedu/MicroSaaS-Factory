@@ -1503,6 +1503,14 @@ export async function createSignupIntent(input: {
       throw new Error("Selected plan is not available.");
     }
 
+    const owner = getWorkspaceOwner(database, email);
+
+    if (owner.user && owner.workspace) {
+      throw new Error(
+        "A founder workspace already exists for this email. Reopen it from founder login.",
+      );
+    }
+
     const existing = database.signupIntents.find(
       (intent) => intent.email === email,
     );
@@ -1517,9 +1525,17 @@ export async function createSignupIntent(input: {
         existing.workspaceId = undefined;
         existing.userId = undefined;
         existing.activatedAt = undefined;
+
+        return existing;
       }
 
-      return existing;
+      if (existing.status === "invited") {
+        return existing;
+      }
+
+      throw new Error(
+        "A founder workspace already exists for this email. Reopen it from founder login.",
+      );
     }
 
     const signupIntent = {

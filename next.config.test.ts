@@ -19,8 +19,9 @@ describe("next.config launch hardening", () => {
     expect(headerMap.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
     expect(headerMap.get("Permissions-Policy")).toContain("camera=()");
     expect(headerMap.get("Cross-Origin-Opener-Policy")).toBe("same-origin-allow-popups");
-    expect(headerMap.get("Content-Security-Policy-Report-Only")).toContain(
+    expect(headerMap.get("Content-Security-Policy")).toContain(
       "https://js.stripe.com",
     );
+    expect(headerMap.has("Content-Security-Policy-Report-Only")).toBe(false);
   });
 });

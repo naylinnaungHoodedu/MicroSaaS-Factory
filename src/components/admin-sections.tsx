@@ -47,6 +47,14 @@ function mapReadinessStatusToPill(status: "ready" | "warning" | "blocked") {
   return "warning";
 }
 
+function mapGoLiveStatusToPill(status: "ready" | "attention" | "manual") {
+  if (status === "ready") {
+    return "connected";
+  }
+
+  return status === "attention" ? "error" : "warning";
+}
+
 function formatAutomationMetricLabel(value: string) {
   return value
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -228,6 +236,44 @@ export function AdminConsoleSection({
             <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
               automation {overview.readiness.automationReady ? "ready" : "not ready"}
             </span>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/10 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
+                Go-live checklist
+              </p>
+              <p className="mt-2 text-sm leading-7 text-cyan-100">
+                This panel combines code-derived readiness with the manual public-edge and DNS
+                confirmations required before the final self-serve launch flips.
+              </p>
+            </div>
+            <Link href="/privacy" className="text-sm text-cyan-100 underline underline-offset-4">
+              Open legal pages
+            </Link>
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            {viewModel.goLiveChecklist.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-cyan-300/20 bg-slate-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">
+                    {item.label}
+                  </p>
+                  <StatusPill status={mapGoLiveStatusToPill(item.status)} />
+                </div>
+                <p className="mt-3 text-sm leading-7 text-slate-200">{item.detail}</p>
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    className="mt-4 inline-flex text-sm text-cyan-200 underline underline-offset-4"
+                  >
+                    Open {item.href}
+                  </Link>
+                ) : null}
+              </div>
+            ))}
           </div>
         </div>
       </div>

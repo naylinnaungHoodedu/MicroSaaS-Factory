@@ -62,7 +62,13 @@ test("default staged signup intent appears in admin and can be issued as an invi
   await page.getByLabel("Workspace name").fill(workspaceName);
   await page.getByRole("button", { name: "Submit signup intent" }).click();
 
-  await expect(page.getByText("Your signup intent has been recorded.")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Your signup intent has been recorded. Workspace activation still stays behind operator review until self-serve provisioning is enabled.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Founder intent is now queued for operator review.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Submit signup intent" })).toHaveCount(0);
 
   await page.goto("/admin");
   await expect(page.getByText(workspaceName)).toBeVisible();
@@ -95,9 +101,71 @@ test("self-serve signup provisions a founder workspace immediately", async ({ pa
   await page.getByRole("button", { name: "Save details and continue" }).click();
 
   await expect(page.getByText(`Signup details saved for ${workspaceName}.`)).toBeVisible();
+  await expect(
+    page.getByText("Workspace details are staged for activation."),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Continue with Test Google" }).click();
 
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.getByRole("heading", { name: "Founder control tower" })).toBeVisible();
   await expect(page.getByText(workspaceName)).toBeVisible();
+});
+
+test("self-serve signup can activate through the test email-link path", async ({ page }) => {
+  const unique = Date.now().toString(36);
+  const founderEmail = `self-serve-email-${unique}@example.com`;
+  const workspaceName = `Email Link ${unique}`;
+
+  await loginAsAdmin(page);
+  await page.getByLabel("Public signup").check();
+  await page.getByLabel("Self-serve provisioning").check();
+  await page.getByRole("button", { name: "Save feature flags" }).click();
+
+  await page.goto("/signup");
+  await page.getByLabel("Founder name").fill("Email Link Founder");
+  await page.getByLabel("Founder email").fill(founderEmail);
+  await page.getByLabel("Workspace name").fill(workspaceName);
+  await page.getByRole("button", { name: "Save details and continue" }).click();
+
+  await expect(page.getByText(`Signup details saved for ${workspaceName}.`)).toBeVisible();
+  await page.getByRole("button", { name: "Continue with Test Email Link" }).click();
+
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole("heading", { name: "Founder control tower" })).toBeVisible();
+  await expect(page.getByText(workspaceName)).toBeVisible();
+});
+
+test("repeat signup with an existing founder email routes the user to login instead of reprovisioning", async ({
+  page,
+}) => {
+  const unique = Date.now().toString(36);
+  const founderEmail = `repeat-signup-${unique}@example.com`;
+  const workspaceName = `Repeat Signup ${unique}`;
+
+  await loginAsAdmin(page);
+  await page.getByLabel("Public signup").check();
+  await page.getByLabel("Self-serve provisioning").check();
+  await page.getByRole("button", { name: "Save feature flags" }).click();
+
+  await page.goto("/signup");
+  await page.getByLabel("Founder name").fill("Repeat Founder");
+  await page.getByLabel("Founder email").fill(founderEmail);
+  await page.getByLabel("Workspace name").fill(workspaceName);
+  await page.getByRole("button", { name: "Save details and continue" }).click();
+  await page.getByRole("button", { name: "Continue with Test Google" }).click();
+
+  await expect(page).toHaveURL(/\/app$/);
+  await page.context().clearCookies();
+
+  await page.goto("/signup");
+  await page.getByLabel("Founder name").fill("Repeat Founder");
+  await page.getByLabel("Founder email").fill(founderEmail);
+  await page.getByLabel("Workspace name").fill("Duplicate Workspace");
+  await page.getByRole("button", { name: "Save details and continue" }).click();
+
+  await expect(
+    page.getByText("A founder workspace already exists for this email. Reopen it from founder login."),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open founder login" })).toBeVisible();
+  await expect(page.getByText(workspaceName, { exact: true }).first()).toBeVisible();
 });

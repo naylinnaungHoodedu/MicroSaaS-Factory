@@ -1,8 +1,10 @@
 import Link from "next/link";
 
+import { PublicSiteShell } from "@/components/public-shell";
+
 export default function NotFound() {
   return (
-    <main className="page-shell flex flex-1 items-center py-16">
+    <PublicSiteShell mainClassName="page-shell flex items-center py-16">
       <div className="w-full rounded-[2rem] border border-white/10 bg-[linear-gradient(140deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] px-6 py-10 shadow-2xl shadow-black/20 md:px-10">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300/80">
           Route Not Found
@@ -21,11 +23,14 @@ export default function NotFound() {
           <Link href="/login" className="button-secondary">
             Founder login
           </Link>
+          <Link href="/pricing" className="button-secondary">
+            Review pricing
+          </Link>
           <Link href="/waitlist" className="button-secondary">
             Request invite
           </Link>
         </div>
       </div>
-    </main>
+    </PublicSiteShell>
   );
 }

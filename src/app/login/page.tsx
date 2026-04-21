@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import { buildPublicPageMetadata } from "@/app/public-metadata";
+import { PublicSiteShell } from "@/components/public-shell";
 import { FirebaseLoginPanel } from "@/components/firebase-login-panel";
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
@@ -28,7 +29,7 @@ export default async function LoginPage({
   const signupIntentEnabled = funnel.availabilityMode === "signup_intent";
 
   return (
-    <main className="page-shell py-10">
+    <PublicSiteShell mainClassName="page-shell py-10">
       <PublicHeroPanel
         state={funnel}
         auxiliary={
@@ -162,6 +163,6 @@ export default async function LoginPage({
           ) : null}
         </div>
       </Section>
-    </main>
+    </PublicSiteShell>
   );
 }

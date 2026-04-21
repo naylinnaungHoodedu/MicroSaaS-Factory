@@ -25,8 +25,11 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("@/lib/server/actions", () => ({
+vi.mock("@/lib/server/public-actions", () => ({
   createSignupIntentAction: vi.fn(),
+  initialSignupActionState: {
+    status: "idle",
+  },
 }));
 
 vi.mock("@/components/firebase-login-panel", () => ({
@@ -164,12 +167,11 @@ describe("/signup page", () => {
 
     const html = renderToStaticMarkup(
       await SignupPage({
-        searchParams: Promise.resolve({ submitted: "1" }),
+        searchParams: Promise.resolve({}),
       }),
     );
 
     expect(html).toContain("Register a founder intent");
-    expect(html).toContain("Your signup intent has been recorded.");
     expect(html).toContain("Submit signup intent");
     expect(html).toContain('autoComplete="name"');
     expect(html).toContain('autoComplete="email"');
@@ -249,12 +251,12 @@ describe("/signup page", () => {
 
     const html = renderToStaticMarkup(
       await SignupPage({
-        searchParams: Promise.resolve({ submitted: "1", intent: "intent-1" }),
+        searchParams: Promise.resolve({ intent: "intent-1" }),
       }),
     );
 
     expect(html).toContain("Create your founder workspace");
-    expect(html).toContain("Signup details saved for Factory Lab.");
+    expect(html).toContain("Workspace details are staged for activation.");
     expect(html).toContain("Firebase Panel");
   });
 

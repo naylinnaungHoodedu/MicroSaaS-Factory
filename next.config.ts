@@ -31,7 +31,7 @@ const securityHeaders = [
     value: "same-origin-allow-popups",
   },
   {
-    key: "Content-Security-Policy-Report-Only",
+    key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://js.stripe.com",

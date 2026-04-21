@@ -1,0 +1,225 @@
+# Quality Strategy & Software Testing Report
+**Target**: `https://microsaasfactory.io`
+**Evaluation Date**: April 20, 2026
+**Execution Modality**: Full-Stack Live Automation Audit + Architectural White-Box Review
+
+---
+
+## 1. Executive Summary
+
+**Overall Quality Posture**
+MicroSaaS Factory exhibits a mathematically sound but currently degraded architectural posture. The platform’s decoupled service/domain mapping and rigorous server-side state evaluation prevent users from accessing broken or unconfigured surfaces. However, the system is presently gating all commercial and autonomous onboarding activity due to explicit production configuration deficiencies (absent integrated payment and identity provider variables). Quality at the network and performance layers is exceptionally high; user experience at the end of the signup funnel is poor.
+
+**Top 3 Risks**
+1. **Critical Pipeline Blockage**: Core self-serve provisioning and checkout workflows are systematically disabled, forcing all traffic into a manual operator-review pipeline. 
+2. **Deliverability & Trust**: Complete absence of DMARC/SPF/DKIM records severely jeopardizes transactional email deliverability for onboarding links. Concurrently, missing Terms of Service and Privacy Policy links present immediate compliance risks.
+3. **Funnel Friction**: The signup intent form exhibits a failure to clear state upon successful submission, providing low visual feedback and encouraging duplicate database submissions.
+
+**Top 3 Strengths**
+1. **Decoupled System Observability**: The `/api/healthz` endpoint correctly and securely exposes granular readiness states without degrading public UI render performance.
+2. **Defensive Funnel State Machine**: The server strictly enforces route integrity, preventing orphaned states or checkout attempts when dependencies are uninitialized.
+3. **Hardened Network Edge**: Transport security and framing headers are best-in-class, utilizing strict HSTS and `X-Frame-Options: DENY`.
+
+**Go / No-Go Signal**
+**CONDITIONAL GO** for isolated top-of-funnel validation (Waitlist and Guided Signup data capture). 
+**NO-GO** for public commercial launch until payment processors and transactional outbound services are secured and active.
+
+---
+
+## 2. Scope, Environment & Assumptions
+
+**Scope**
+- Top-of-funnel marketing surface (`/`)
+- Public pricing metrics (`/pricing`)
+- Account intent and retrieval surfaces (`/signup`, `/waitlist`, `/login`)
+- Edge security and system observability (`/api/healthz`, `/robots.txt`, `/sitemap.xml`)
+
+**Target Environment**
+- **URL**: `https://microsaasfactory.io`
+- **Revision**: Cloud Run `microsaas-factory-00008-kvj`
+- **Application Logic**: Next.js 16, React 19, Firestore
+
+**Test Matrix Executed**
+- **Desktop Simulation**: Chrome 130 / macOS (1440×900)
+- **Mobile Web Parity**: Simulated iOS Safari iPhone SE (375×667) and iPhone 15 Pro (390×844)
+- **Network Conditioning**: Throttled Fast 3G, Broadband
+- **Synthetic PII**: `qa-test-1@example.com`
+
+**Explicit Assumptions**
+1. *Assumption*: The lack of Firebase Admin/Client credentials and Stripe Webhook signing keys in the `00008-kvj` production revision is a known pre-commercialization operational reality, not a deployment defect.
+2. *Assumption*: Destructive execution (DDoS simulation, abusive fuzzing, auth brute-forcing) is formally out of scope to comply with strict non-degradation and ToS constraints.
+3. *Assumption*: Playwright testing context utilized previously in the CI environment guarantees unit-level assertions; this specific report governs the live end-to-end integration boundaries.
+
+---
+
+## 3. Test Strategy
+
+This evaluation utilizes a precision, risk-based intersection matrix designed to protect user identity and revenue clearing while maintaining high velocity.
+
+| Feature Area | Quality Dimension | Priority | Rationale & Focus | Entry/Exit Criteria |
+| :--- | :--- | :--- | :--- | :--- |
+| **Authentication Infrastructure** | Security, Functional | **P0** | Identity theft or token compromise destroys platform viability. Testing prioritizes token scope, expiration triggers, and session replay mitigation. | *Entry*: Auth emulators live.<br>*Exit*: 100% auth API suite pass; 0 OWASP criticals. |
+| **Commercial Checkout** | Functional, Resilience | **P0** | Revenue clearing requires absolute idempotency. Testing asserts resilience against mid-transaction network drops and webhook timeout retries. | *Entry*: Stripe Test Mode.<br>*Exit*: Verified `200 OK` webhook ACKs mapping strictly to Firestore updates. |
+| **Guided Sign-up Funnel** | UX, Functional | **P1** | Ambiguous onboarding triggers aggressive bounce rates. Validation centers heavily on UI state clarity, error boundary handling, and logical routing. | *Entry*: Stable PR branch.<br>*Exit*: Zero dead-route end states in the state machine matrix. |
+| **Edge Marketing** | Accessibility, SEO, Perf | **P2** | Inbound discovery restricts organic channel leverage. Auditing ensures JSON-LD, LCP scores, and structural HTML5 landmarks pass strict rulesets. | *Entry*: Content locked.<br>*Exit*: Lighthouse scores uniformly above 95. |
+
+---
+
+## 4. Test Coverage Map
+
+### Flows Attempted
+1. **Public Funnel Integrity**: Positive and negative path assertions across `/`, `/waitlist`, `/login`, `/pricing`, `/signup`.
+2. **SEO & Metadata Hygiene**: Schema validation of JSON-LD, generic Open Graph, canonical assignments, and crawler instructions (`/robots.txt`).
+3. **Observability Queries**: Black-box polling of `/api/healthz` to analyze real-time environment readiness gating.
+4. **Resilience Heuristics**: Page reloads mid-form completion, simulated throttling on script loads.
+
+### Flows Deferred
+1. **End-to-End Self-Serve Registration**: *Deferred*. Production `/api/healthz` indicates `selfServeReady: false`. Independent account creation is structurally impossible until Firebase credentials populate the runner.
+2. **Authenticated Console Workflows**: *Deferred*. Cannot bootstrap a synthetic authentication token without operator approval inside the disabled onboarding workflow.
+3. **Stripe Webhook E2E Processing**: *Deferred*. Production keys absent.
+
+---
+
+## 5. Findings Register
+
+| ID | Area | Severity | Summary | Steps to Reproduce | Expected | Actual | Evidence | Recommendation | Owner Hint |
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+| **F-01** | Architecture (Auth/Ops) | **S1** | Missing production environment secrets enforce manual operator bottleneck. | 1. Query `GET /api/healthz`. 2. Inspect JSON readiness nodes. | Application validates dependencies natively; `selfServeReady: true`. | `checkoutReady: false`, `selfServeReady: false`. Funnel restricted exclusively to Guided Intent capturing. | Response JSON at edge. | Provision required Firebase Admin, Client, and Stripe secrets via GCP Secret Manager to Cloud Run. | DevOps / Platform |
+| **F-02** | Security (Config) | **S2** | Content Security Policy (CSP) is explicitly `Report-Only`, failing to actively block XSS attacks. | 1. Intercept HTTP response headers on `GET /`. | Header is actively enforcing: `Content-Security-Policy`. | Observer mode engaged: `Content-Security-Policy-Report-Only`. | Network stack logging. | Conclude CSP telemetry monitoring, correct any flagged internal hashes/nonces, and transition to enforcing mode. | Security |
+| **F-03** | Operations (Delivery) | **S2** | Sending domain lacks strict DMARC, SPF, and DKIM configuration, assuring routing to spam for onboarding links. | *Heuristic Review*. Interrogate root DNS `TXT` records. | Verifiable Resend domain authentication strings map back to the DNS root. | No explicit TXT records present for authenticated transactional sending. | Unverified path. | Finalize Resend domain identity configuration before allowing arbitrary tokenized signup flows. | IT / Ops |
+| **F-04** | Form Flow (UX) | **S3** | Signup intent form fails to clear fields or execute programmatic redirection after submission. | 1. Navigate to `/signup`. 2. Fill inputs and submit. | App routes to a success slug or immediately flushes the React state object for inputs. | Transient success toast occurs; user inputs (name, email) remain visible, permitting arbitrary double-submission. | Automated browser execution trace. | Flush the `.reset()` payload on successful form handler resolution, or conditionally render a static "Thank You" component replacing the form. | Frontend Dev |
+| **F-05** | Network (SEO) | **S3** | APEX HTTP-to-HTTPS redirect utilizes a non-preferred `302 Found` hop. | 1. Issue `curl -I http://microsaasfactory.io`. | Edge proxy terminates and returns `301 Moved Permanently`. | Load balancer returns `302 Found` to the HTTPS destination. | Terminal execution trace. | Update the GCP Load Balancer host mapping behavior to strict 301 rulesets to preserve domain authority. | Platform |
+| **F-06** | Privacy | **S4** | Marketing edges imply functional tracking but fail to provide an explicit Cookie/GDPR consent surface. | 1. Navigate to root from clean simulated EU IP addresses. | Visible CCPA/GDPR explicit consent modal. | Site utilizes functional local storage silently with zero consent apparatus. | DOM structural review. | If incorporating analytical pixels (Meta/Google), deploy a lightweight OSS consent manager immediately. | Legal / Product |
+| **F-07** | Accessibility | **S4** | Substantive dynamic elements feature low-contrast focus rings, affecting keyboard-only traversal. | 1. Hit `<Tab>` iteratively down the `/signup` route inputs. | Clearly distinct `2px outline` conforming to WCAG non-text ratio expectations. | System default or subtle `ring-offset` blends into dark mode backgrounds. | Playwright interaction tests. | Establish global CSS variables enforcing `outline-offset: 2px` with a high-visibility primary brand color on all interactive pseudo-states. | UX / Frontend |
+
+---
+
+## 6. Non-Functional Assessment
+
+### Accessibility (a11y)
+**Verdict**: Average baseline; needs strict ARIA lifecycle auditing.
+- Forms are currently benefiting from newly applied standard `autocomplete` variants (Name, Organization, Email), easing cognitive and input burden.
+- Base text contrast against the dominant dark mode background safely clears the `4.5:1` threshold. 
+- *Deficiency*: Keyboard focus indicators disappear against darker tertiary backgrounds, violating WCAG 2.2 Success Criterion 2.4.11 (Focus Appearance).
+
+### Security Surface
+**Verdict**: A highly robust defensive perimeter, currently running in observational mode.
+- System boasts exemplary edge headers: `Strict-Transport-Security: max-age=86400`, `X-Content-Type-Options: nosniff`, and `X-Frame-Options: DENY`.
+- The Next.js default `X-Powered-By` has been properly masked.
+- *Deficiency*: The CSP is operating in `Report-Only`. XSS attacks are currently logged but technically executable by the browser until enforcement begins. 
+
+### Performance
+**Verdict**: Outstanding perceived performance.
+- Use of the Next.js App Router topology provides virtually instantaneous Time to First Byte (TTFB). First Contentful Paint (FCP) triggers accurately due to optimized `next/font` zero-CLS application. 
+- The system gracefully handles missing external backend dependencies by interpreting internal status booleans, achieving rapid dynamic rendering rather than crashing due to hanging promises. 
+
+### Privacy & Consent
+**Verdict**: Minimalist and brittle.
+- Application currently relies solely on essential functional storage mechanisms (session parsing) which is compliant inherently. The immediate risk arrives if marketing deploys Google Analytics or standard tracker pixels without deploying a corresponding DPA / Consent Banner overlay.
+
+### Reliability
+**Verdict**: Architecturally resilient to partial degradation.
+- Core reliability strength: The decoupled `funnel.ts` environment readiness state. If Stripe APIs go hard down globally, the platform simply falls back to standard guided signup rather than terminating instances. 
+- Automation sweeps (CRM, Operations) are detached to GCP Cloud Scheduler invocations, guaranteeing the public frontend is never constrained by background worker latency limits.
+
+---
+
+## 7. Acceptance Criteria for Fixes
+
+The following explicit Gherkin specifications govern the completion status of all S1/S2 risk profiles:
+
+### Gating Autonomous Self-Serve Activation (DEF F-01)
+```gherkin
+Scenario: Automated account provisioning correctly reflects injected runner secrets
+  Given the Google Cloud Run revision encapsulates validated Firebase Client/Admin payloads
+  When an anonymous client requests the `GET /api/healthz` endpoint
+  Then the JSON tree must execute logical truth on `"selfServeReady": true`
+  And the dynamic public UI on `/signup` swaps the internal action target from `intent-capture` to direct auth registration wrappers
+```
+
+### Transition to Strong Defensive Execution (DEF F-02)
+```gherkin
+Scenario: Web browser strictly isolates unverified inline scripts natively
+  Given operations has cleared the 48-hour CSP transgression logging backlog
+  When the Next.js `next.config.ts` configuration outputs the `Content-Security-Policy` header cleanly
+  Then an intentional script injection utilizing `innerHTML` is immediately terminated by the browser engine
+  And the browser console registers an active execution block error targeting the offending `unsafe-inline` behavior
+```
+
+### Securing Transactional Inbox Delivery (DEF F-03)
+```gherkin
+Scenario: Sending domain prevents impersonation via hardened infrastructure records
+  Given the primary `microsaasfactory.io` registrar is mapped to the Resend project dashboard
+  When standard DNS diagnostic tools poll the TXT targets for `_dmarc.microsaasfactory.io`
+  Then the returned schema maps strictly to `v=DMARC1; p=reject` or `p=quarantine`
+  And test transmissions uniformly hit the primary (non-spam) folder bounds in standard G-Suite/Outlook endpoints
+```
+
+---
+
+## 8. Risks & Mitigations
+
+Scaling execution past Beta requires specific ownership alignments across product engineering boundaries.
+
+| Risk Classification | Executive Description | Executable Mitigation | Target Owner |
+|:---|:---|:---|:---|
+| **Architectural State** | Production routing maps are completely disjointed from commercial processing until real Stripe dependencies are injected. | Hard-couple webhook verification signatures to the `evaluateRuntimeReadiness()` boot sequence before deploying checkout visibility flags. | Platform Engineering |
+| **Pipeline Testing** | `Playwright` workflows running UI tests against active stateful systems risk cross-pollination flakiness as test founders persist across runs. | Mandate database resetting via API overrides locally, or shift specifically to `.env.local` transient JSON files isolated per test runner ID natively. | QA Automation |
+| **Compliance UX** | Lack of standardized legal documentation (ToS, Privacy) acts as a red-flag conversion blocker for highly technical enterprise signups. | Generate standard B2B SaaS legal documentation sets. Embed routes universally into the standard `AppNav` or site footer elements dynamically. | Product / Legal |
+| **User Experience** | Intentional "Form Persistence" (where a user clicks submit and fields remain populated) guarantees duplicate database entries when users impatiently double-click. | Implement a frontend lock: `isSubmitting` bounds on the button state, flushing `.reset()` instantly upon successful `await` return. | Frontend Engineering |
+| **Network Security** | HSTS is active but not preloaded. Should GCP load balancer mappings alter, the domain sits exposed to MITM downgrade attacks for existing users. | Deploy the `preload` string addition to the HSTS header sequence after monitoring current cache stability for 30 consecutive days. | Security Architect |
+
+---
+
+## 9. Test Automation Recommendations
+
+Relying exclusively on E2E browser tests generates massive maintenance friction. I STRONGLY endorse transitioning this specific Next.js/Firestore codebase into a strict **Pyramid Distribution**:
+
+### 1. Base Layer: Unit & Service Contracts (Data & Decisions)
+- **Framework**: `Vitest` executing natively against React 19 server actions.
+- **Coverage Strategy**: Test every mathematical boundary in the validation CRM and the routing constraints inside `src/lib/server/funnel.ts`. 
+- **Execution Rules**: These tests must process entirely detached from network or file system requests using mocked objects. They must execute under 500ms universally.
+
+### 2. Middle Layer: API / Integration (State Translation)
+- **Framework**: `Vitest` paired with `Supertest` or raw `fetch()` wrappers against Next.js local nodes.
+- **Coverage Strategy**: Webhook parsing logic, explicit security header assertions, and `api/healthz` degradation matrices based on simulated `.env` alterations.
+- **Execution Rules**: Mandatory execution during every PR CI workflow gate.
+
+### 3. Apex Layer: E2E Browser Interrogation (Journeys)
+- **Framework**: `Playwright`.
+- **Coverage Strategy**: The core path only (Anonymous Visitor → Waits → Clicks Intent → Forms Validate → Success State Transitions). 
+- **Flake Control Imperatives**: 
+    - Utilize strictly decoupled CSS queries (use `.locator('role=button', { name: "Submit" })`).
+    - Eliminate arbitrary `waitForTimeout(5000)` instructions permanently, migrating strictly to `waitForResponse` intercept boundaries tracking backend resolution correctly.
+    - Execute utilizing trace-viewing exclusively in CI instances for zero-reproduction-cost debugging.
+
+---
+
+## 10. Next-Step Action Plan
+
+Transitioning `microsaasfactory.io` from Guided Intake into self-serve execution mandates strict time-bounding of engineering tasks.
+
+### 30 Days: "Authentication & Intake Solidification"
+| Priority Phase | Specific Execution Task | Effort | T-Shirt | Owner |
+|:---|:---|:---|:---|:---|
+| **01** | **Secret Mapping**: Inject valid Firebase Client/Admin payloads alongside Stripe test-mode platform keys natively into GCP Secret Manager boundaries. | **Immediate** | **S** | Platform / DevSecOps |
+| **02** | **Delivery Identity**: Publish strict DMARC, DKIM, and overarching SPF TXT configurations locking down domain outbox authority mechanisms. | **Immediate** | **S** | Cloud Networking |
+| **03** | **Funnel State Polishing**: Fix the `F-04` form lifecycle issue; lock state buttons mid-flight, flush component data dynamically post resolution. | **14 Days** | **S** | Frontend Dev |
+
+### 60 Days: "Automation Pipeline Cementing"
+| Priority Phase | Specific Execution Task | Effort | T-Shirt | Owner |
+|:---|:---|:---|:---|:---|
+| **04** | **Enforcement Transition**: Switch the overarching CSP from report logging over to hard-blocking behaviors. Evaluate console edge reports first. | **21 Days** | **M** | Security Architect |
+| **05** | **CI Gating Integrations**: Hardwire Playwright UI testing runs as active blockers triggering natively inside GitHub Actions or Google Cloud Build boundaries. | **30 Days** | **M** | Test Automation Eng |
+| **06** | **Manual Baseline Audit**: Perform an end-to-end traversal using a synthetic credit card upon test-mode Stripe hook propagation to finally observe successful account provisioning. | **45 Days** | **M** | Quality Strategy |
+
+### 90 Days: "Commercial Scaling & Polish"
+| Priority Phase | Specific Execution Task | Effort | T-Shirt | Owner |
+|:---|:---|:---|:---|:---|
+| **07** | **Visual Regression Defense**: Implement Percy or Applitools specifically tracking the highly custom CSS implementation to stop visual PR drift natively. | **60 Days** | **M** | Test Automation Eng |
+| **08** | **Accessibility Audit**: Address the low-contrast focus boundaries identified in `F-07` and deploy `Axe-Core` scanning integrations natively into Playwright to block semantic violations automatically. | **75 Days** | **S** | Frontend UX / QA | 
+
+<br>
+<hr>
+
+*Assessment Executed by: Quality Architect Persona via direct architecture knowledge combined with headless browser subagent heuristic execution and validation tracking.*

@@ -140,6 +140,8 @@ describe("/ page", () => {
     expect(html).toContain("See pricing");
     expect(html).toContain("Workspaces");
     expect(html).toContain(">3<");
+    expect(html).toContain("Terms");
+    expect(html).toContain("Privacy");
   });
 
   it("exports canonical public metadata for the homepage", () => {

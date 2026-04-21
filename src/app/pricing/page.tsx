@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { buildPublicPageMetadata } from "@/app/public-metadata";
+import { PublicSiteShell } from "@/components/public-shell";
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { Section } from "@/components/ui";
 import { startPlatformCheckoutAction } from "@/lib/server/actions";
@@ -21,17 +22,17 @@ export const metadata: Metadata = buildPublicPageMetadata({
 export default async function PricingPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ billing?: string; reason?: string }>;
-} = {}) {
+  searchParams: Promise<{ billing?: string; reason?: string }>;
+}) {
   const funnel = await getPublicFunnelState();
-  const resolved = (await searchParams) ?? {};
+  const resolved = await searchParams;
 
   if (!funnel.pricingVisible || funnel.plans.length === 0) {
     redirect("/");
   }
 
   return (
-    <main className="page-shell py-10">
+    <PublicSiteShell mainClassName="page-shell py-10">
       <PublicHeroPanel
         state={funnel}
         auxiliary={
@@ -170,6 +171,6 @@ export default async function PricingPage({
           />
         </div>
       </Section>
-    </main>
+    </PublicSiteShell>
   );
 }

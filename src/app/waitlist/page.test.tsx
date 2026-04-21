@@ -20,8 +20,11 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("@/lib/server/actions", () => ({
+vi.mock("@/lib/server/public-actions", () => ({
   submitWaitlistAction: vi.fn(),
+  initialWaitlistActionState: {
+    status: "idle",
+  },
 }));
 
 vi.mock("@/lib/server/funnel", () => ({
@@ -147,6 +150,8 @@ describe("/waitlist page", () => {
     expect(html).toContain("Open signup instead");
     expect(html).toContain('autoComplete="name"');
     expect(html).toContain('autoComplete="email"');
+    expect(html).toContain("Terms");
+    expect(html).toContain("Privacy");
   });
 
   it("exports canonical waitlist metadata", () => {

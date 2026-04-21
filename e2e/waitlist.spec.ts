@@ -14,6 +14,12 @@ test("waitlist submission succeeds", async ({ page }) => {
 
   await page.getByRole("button", { name: "Join the waitlist" }).click();
 
-  await expect(page).toHaveURL(/\/waitlist\?submitted=1$/);
-  await expect(page.getByText("Your request has been recorded.")).toBeVisible();
+  await expect(page).toHaveURL(/\/waitlist$/);
+  await expect(page.getByText("Request recorded")).toBeVisible();
+  await expect(
+    page.getByText("Your request has been recorded. Return to the overview or wait for an invite."),
+  ).toBeVisible();
+  await expect(page.getByText("Playwright Founder")).toBeVisible();
+  await expect(page.getByText("playwright-founder@example.com")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Join the waitlist" })).toHaveCount(0);
 });

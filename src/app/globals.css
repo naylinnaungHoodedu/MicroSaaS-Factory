@@ -40,6 +40,19 @@ a {
   text-decoration: none;
 }
 
+button,
+input,
+select,
+textarea,
+a {
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    outline-color 150ms ease;
+}
+
 input,
 select,
 textarea {
@@ -50,14 +63,22 @@ textarea {
   color: var(--foreground);
   padding: 0.85rem 1rem;
   outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-input:focus,
-select:focus,
-textarea:focus {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   border-color: rgba(49, 211, 240, 0.55);
-  box-shadow: 0 0 0 4px rgba(49, 211, 240, 0.12);
+  box-shadow:
+    0 0 0 2px rgba(2, 8, 23, 0.85),
+    0 0 0 5px rgba(49, 211, 240, 0.4);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid rgba(49, 211, 240, 0.92);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(49, 211, 240, 0.18);
 }
 
 label {
@@ -66,6 +87,14 @@ label {
 
 button {
   cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .button-primary {

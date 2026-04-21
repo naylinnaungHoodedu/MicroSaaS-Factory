@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+import { PublicSiteShell } from "@/components/public-shell";
 import { PublicHeroPanel, PublicInfoCard, PublicJourneyRail } from "@/components/public-ui";
 import { buildPublicPageMetadata } from "@/app/public-metadata";
 import { Section, StatCard } from "@/components/ui";
@@ -20,7 +21,7 @@ export default async function Home() {
   const funnel = await getPublicFunnelState();
 
   return (
-    <main className="pb-16">
+    <PublicSiteShell mainClassName="pb-16">
       <div className="page-shell pt-8">
         <PublicHeroPanel
           state={funnel}
@@ -144,6 +145,6 @@ export default async function Home() {
           </div>
         </div>
       </div>
-    </main>
+    </PublicSiteShell>
   );
 }

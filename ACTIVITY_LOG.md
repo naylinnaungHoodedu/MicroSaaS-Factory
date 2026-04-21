@@ -905,3 +905,297 @@ These items are operational inputs, not missing application code:
 - Feature flag flips for self-serve provisioning and checkout (gated on the above)
 
 *Addendum logged on April 20, 2026 at 9:04 PM EDT after the final deployment integration, comprehensive production verification, and GitHub synchronization.*
+
+---
+
+## April 21, 2026 Immediate Production Self-Serve Launch Implementation Addendum
+
+> **Logged at**: 1:45 AM EDT
+> **Engineer**: Codex
+> **Purpose**: Record the completed repository implementation pass for the approved self-serve launch plan in the current folder
+
+This addendum records the full implementation and verification pass completed on April 21, 2026 after the approved "Immediate Production Self-Serve Launch" plan was executed inside the local repository.
+
+### Scope Completed In The Current Folder
+
+- Implemented the repository-side launch plan directly in the workspace without changing:
+  - the database schema
+  - the feature-flag shape
+  - the pricing-plan contract
+  - the subscription lifecycle model
+- Preserved the existing public technical voice and dark visual identity.
+- Kept this session strictly at the repository layer:
+  - no production deployment
+  - no Cloud Run secret mutation
+  - no DNS publication
+  - no live feature-flag flips
+
+### Public Surface And Legal Work Completed
+
+- Added a shared public shell/footer across:
+  - `/`
+  - `/pricing`
+  - `/signup`
+  - `/login`
+  - `/waitlist`
+  - the public not-found route
+- Added first-party legal routes:
+  - `/terms`
+  - `/privacy`
+- Added baseline legal copy aligned to the actual implemented product behavior for:
+  - Firebase authentication
+  - Firestore persistence
+  - Stripe billing
+  - Resend email delivery
+  - GitHub / GCP / Stripe / Resend integration storage
+  - essential session cookies
+  - Firebase email-link localStorage state
+- Updated the sitemap and metadata test surface so the legal routes are now part of the public route contract.
+
+### Public Waitlist And Signup Hardening Completed
+
+- Replaced redirect/query-param flash handling for the public waitlist and public signup flows with structured action-state handling.
+- Added a dedicated waitlist form state flow that now:
+  - disables submission while pending
+  - resets after success
+  - replaces the editable form with a confirmation card
+- Added a dedicated signup form state flow that now:
+  - preserves server actions as the mutation boundary
+  - replaces the editable form with a read-only summary after success
+  - keeps the Firebase activation lane visible for self-serve mode
+  - preserves guided-signup behavior for operator-reviewed mode
+- Hardened signup-intent behavior in the service layer so an already provisioned founder/workspace email no longer silently re-enters the signup path and is instead routed back toward founder login.
+
+### Security, Accessibility, And Admin Visibility Completed
+
+- Promoted the application header posture from `Content-Security-Policy-Report-Only` to enforced `Content-Security-Policy`.
+- Intentionally left short HSTS behavior unchanged because the permanent redirect dependency remains externally controlled.
+- Strengthened global keyboard focus visibility for:
+  - links
+  - buttons
+  - inputs
+  - selects
+  - textareas
+- Extended the admin console with a non-persisted go-live checklist covering:
+  - Firebase readiness
+  - Stripe readiness
+  - legal route presence
+  - CSP enforcement
+  - permanent redirect follow-up
+  - SPF / DKIM / DMARC / CAA follow-up
+
+### Operations Script And Runbook Expansion Completed
+
+- Extended `scripts/verify-public-edge.ps1` to verify:
+  - enforced CSP presence
+  - `/terms`
+  - `/privacy`
+  - optional checkout readiness
+  - optional self-serve readiness
+  - SPF detection
+  - DMARC policy checks
+  - launch-mode DKIM host verification
+- Extended `scripts/cloud-ops-runbook.md` with:
+  - standard post-rollout verification usage
+  - long-HSTS verification sequencing
+  - final self-serve launch verification guidance
+
+### Regression Coverage Expansion Completed
+
+- Added or updated unit/route/config coverage for:
+  - the shared public footer
+  - `/terms`
+  - `/privacy`
+  - sitemap legal-route inclusion
+  - enforced CSP header expectations
+  - structured public action-state handling
+- Added or updated Playwright coverage for:
+  - waitlist confirmation without redirect-query flash state
+  - self-serve activation through test Google
+  - self-serve activation through the test email-link path
+  - repeat signup with an already provisioned founder email routing to login instead of reprovisioning
+
+### Verification Completed In The Current Folder
+
+- Confirmed successful execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+- Final verified results after the April 21 implementation pass:
+  - `151` passing Vitest tests
+  - `12` passing Playwright end-to-end tests
+  - clean ESLint run
+  - clean production build including `/terms` and `/privacy`
+
+### Current Folder Status After This Update
+
+- The current folder now contains the completed repository-side implementation for:
+  - public shell/footer unification
+  - launch-baseline legal pages
+  - structured public waitlist/signup form state
+  - explicit existing-workspace signup protection
+  - enforced CSP
+  - stronger focus-visible accessibility treatment
+  - admin go-live checklist visibility
+  - expanded public-edge verification tooling
+  - expanded route, config, and browser regression coverage
+- The remaining production-opening steps are still external operational tasks rather than missing repository implementation work:
+  - Firebase production credential provisioning
+  - Stripe production credential provisioning
+  - permanent HTTP -> HTTPS redirect correction
+  - DNS email-auth publication
+  - production feature-flag flips
+
+*Addendum logged on April 21, 2026 at 1:45 AM EDT after the Immediate Production Self-Serve Launch repository implementation and full local verification pass.*
+
+## April 21, 2026 Deployment Completion And Verification Addendum
+
+### Scope Completed In This Session
+
+- Re-studied the active public funnel, admin readiness, rollout scripts, tests, Docker, and Cloud Build paths directly from the current folder before making additional changes.
+- Preserved the pre-existing dirty tree and completed the remaining launch-hardening work without reverting any user edits already in progress.
+
+### Repository And Harness Corrections Completed
+
+- Corrected `src/app/pricing/page.tsx` so the App Router page signature now satisfies webpack-based type checking in addition to the Turbopack build path.
+- Updated `src/app/pricing/page.test.tsx` so the pricing page tests now call the page with a real `searchParams` prop object instead of invoking it with no arguments.
+- Hardened `scripts/e2e-web-server.mjs` so the Playwright harness now:
+  - detects incomplete standalone artifacts from the default local Turbopack build
+  - safely removes generated `.next` output only
+  - rebuilds `.next` with `next build --webpack`
+  - then boots the standalone server for browser verification
+- Corrected `scripts/verify-public-edge.ps1` so live-edge checks now normalize `curl.exe` output to strings and coerce status/header checks to explicit booleans instead of failing on PowerShell array-to-boolean conversion.
+
+### Verification Completed In This Session
+
+- Confirmed successful execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npx next build --webpack`
+  - `npx playwright test`
+  - `npm run test:e2e`
+- Final verified local totals after the deployment-completion pass:
+  - `151` passing Vitest tests
+  - `12` passing Playwright end-to-end tests
+  - clean ESLint run
+  - clean Turbopack production build
+  - clean webpack production build for the E2E harness
+- `npm audit --audit-level=high` reported no High or Critical vulnerabilities in the current lockfile, while still reporting `8` low-severity transitive findings in the Firebase Admin / Google storage chain.
+- `docker build -t microsaas-factory-local .` could not be completed locally because the Docker Desktop engine pipe `//./pipe/dockerDesktopLinuxEngine` was unavailable in this environment.
+
+### Cloud Build Deployment Completed
+
+- Submitted production rollout with:
+  - `gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE_TAG=deploy-20260421-1`
+- Cloud Build completed successfully:
+  - build ID `b76ba316-736d-4d8e-9634-3c1ee00245b8`
+  - duration `4M37S`
+  - image `us-central1-docker.pkg.dev/naylinnaung/microsaas-factory/web:deploy-20260421-1`
+  - image digest `sha256:527885db5e6c76b62f1d480d309cb9f769112334883f28c980a0f7b6b4743441`
+- Cloud Run rollout completed successfully:
+  - revision `microsaas-factory-00009-gzz`
+  - traffic `100%`
+  - service URL `https://microsaas-factory-54872079170.us-central1.run.app`
+- Cloud Run emitted one warning during deploy:
+  - setting unauthenticated IAM policy failed during the deploy step and should be reviewed separately with `gcloud beta run services add-iam-policy-binding ...`
+
+### Live Verification Completed
+
+- Verified the custom domain now serves the new rollout with:
+  - enforced `Content-Security-Policy`
+  - `Strict-Transport-Security: max-age=86400`
+  - live `/terms` route
+  - live `/privacy` route
+  - live `/robots.txt`
+  - live `/sitemap.xml`
+  - live `/api/healthz`
+- Verified `https://microsaasfactory.io/api/healthz` now returns:
+  - `pricingReady=true`
+  - `signupIntentReady=true`
+  - `checkoutReady=false`
+  - `selfServeReady=false`
+  - `automationReady=true`
+- Verified the deployed Cloud Run service URL also returns HTTP `200`.
+- The live edge verifier still fails only on external rollout dependencies that are not solved by repository code:
+  - apex HTTP still redirects with `302` instead of `301`
+  - SPF TXT record is still missing
+  - DMARC TXT record is still missing
+  - CAA records are still missing
+
+### Remaining External And Governance Gaps
+
+- Public self-serve is still intentionally not launch-ready because production readiness remains:
+  - `checkoutReady=false`
+  - `selfServeReady=false`
+- External platform follow-up is still required for:
+  - permanent `301` HTTP -> HTTPS redirect
+  - SPF publication
+  - DMARC publication
+  - CAA publication
+  - final checkout and Firebase production readiness inputs
+- Governance and regulated-release gaps remain open in the current folder:
+  - `/CODEOWNERS` is still absent
+  - Docker base image digests are still not pinned
+  - SBOM artifact is still absent
+- The repository and live rollout are therefore materially improved and deployed, but they do **not** justify any regulated-release readiness claim.
+
+*Addendum logged on April 21, 2026 at 2:46 AM EDT after local verification repair, Cloud Build deployment, and live-domain verification of revision `microsaas-factory-00009-gzz`.*
+
+## April 21, 2026 Post-Deployment Verification Audit Addendum
+
+### Deep Verification Audit Completed
+
+- Re-ran a full repository-side verification audit against the completed April 21 implementation and deployment work.
+- Re-checked both local code correctness and the live custom-domain state instead of relying only on the earlier deployment summary.
+
+### Repository Verification Reconfirmed
+
+- Confirmed successful execution of:
+  - `git diff --check`
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `npx next build --webpack`
+- Final audit totals remained clean:
+  - `151` passing Vitest tests
+  - `12` passing Playwright tests
+  - clean ESLint run
+  - clean Turbopack production build
+  - clean webpack production build
+- No repository-side runtime, type, build, route, or browser regression was reproduced during this audit pass.
+
+### Live Production State Reconfirmed
+
+- Re-verified the deployed custom domain and confirmed the completed repository-side rollout work is still live:
+  - enforced `Content-Security-Policy`
+  - live `/terms`
+  - live `/privacy`
+  - live `/robots.txt`
+  - live `/sitemap.xml`
+  - live `/api/healthz`
+- Reconfirmed `https://microsaasfactory.io/api/healthz` still reports:
+  - `pricingReady=true`
+  - `signupIntentReady=true`
+  - `checkoutReady=false`
+  - `selfServeReady=false`
+  - `automationReady=true`
+
+### Remaining Issues Confirmed During Audit
+
+- No new code defect was found in the completed repository work.
+- The remaining issues are still live operational blockers outside repository logic:
+  - `http://microsaasfactory.io/` still returns `302` instead of `301`
+  - SPF record still missing
+  - DMARC record still missing
+  - CAA records still missing
+- `npm audit --audit-level=high` still reports only low-severity transitive dependency findings in the Firebase Admin / Google storage chain and no High or Critical findings.
+
+### Final Audit Conclusion
+
+- The completed April 21 repository implementation remains technically sound under repeated verification.
+- The remaining open items are production platform, DNS, and readiness-state issues rather than unresolved source-code regressions in the current folder.
+
+*Addendum logged on April 21, 2026 at 2:55 AM EDT after a deep post-deployment verification audit of the completed work.*

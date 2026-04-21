@@ -35,6 +35,10 @@ vi.mock("@/lib/server/funnel", () => ({
 
 import PricingPage, { metadata as pricingMetadata } from "./page";
 
+const defaultPageProps = {
+  searchParams: Promise.resolve({}),
+};
+
 function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
   return {
     activationDetail: "Activation follows the current operator-controlled invite or signup-intent flow.",
@@ -152,13 +156,13 @@ describe("/pricing page", () => {
       }),
     );
 
-    await expect(PricingPage()).rejects.toThrow("REDIRECT:/");
+    await expect(PricingPage(defaultPageProps)).rejects.toThrow("REDIRECT:/");
   });
 
   it("renders pricing content when pricing is visible", async () => {
     getPublicFunnelStateMock.mockResolvedValue(buildFunnelState());
 
-    const html = renderToStaticMarkup(await PricingPage());
+    const html = renderToStaticMarkup(await PricingPage(defaultPageProps));
 
     expect(html).toContain("Choose the MicroSaaS Factory lane");
     expect(html).toContain("Growth");
@@ -213,7 +217,7 @@ describe("/pricing page", () => {
       }),
     );
 
-    const html = renderToStaticMarkup(await PricingPage());
+    const html = renderToStaticMarkup(await PricingPage(defaultPageProps));
 
     expect(html).toContain("Start monthly checkout");
     expect(html).toContain("Start annual checkout");

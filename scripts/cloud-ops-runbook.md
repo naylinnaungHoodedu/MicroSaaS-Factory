@@ -51,18 +51,36 @@ Run the verification script after each production rollout:
 ```powershell
 pwsh ./scripts/verify-public-edge.ps1 `
   -Domain microsaasfactory.io `
-  -ExpectPermanentRedirect `
-  -ExpectLongHsts
+  -ExpectPermanentRedirect
 ```
 
 The script checks:
 
 - `https://<domain>/` response headers, including HSTS
+- Enforced `Content-Security-Policy` instead of report-only mode
 - `http://<domain>/` redirect posture
-- `robots.txt`, `sitemap.xml`, and `/api/healthz`
-- DNS visibility for TXT, MX, DMARC, and CAA records
+- `robots.txt`, `sitemap.xml`, `/terms`, `/privacy`, and `/api/healthz`
+- DNS visibility for SPF, MX, DMARC, optional DKIM hosts, and CAA records
 
 If the public edge still returns `302`, do not set `MICROSAAS_FACTORY_LONG_HSTS=1` yet. Promote long HSTS only after the permanent `301` redirect is confirmed.
+
+When the edge is verified for a long-lived secure launch posture, rerun with long HSTS:
+
+```powershell
+pwsh ./scripts/verify-public-edge.ps1 `
+  -Domain microsaasfactory.io `
+  -ExpectPermanentRedirect `
+  -ExpectLongHsts
+```
+
+For the final public self-serve launch, require checkout and self-serve readiness plus provider-issued DKIM hostnames:
+
+```powershell
+pwsh ./scripts/verify-public-edge.ps1 `
+  -Domain microsaasfactory.io `
+  -ExpectLaunchReady `
+  -DkimHosts selector1._domainkey.microsaasfactory.io,selector2._domainkey.microsaasfactory.io
+```
 
 Suggested DNS posture for the production domain:
 
@@ -80,3 +98,4 @@ Suggested DNS posture for the production domain:
   - Cloud Logging receives the structured warning or failure event.
   - The log-based metric increments and the alert policy opens.
 4. Confirm `/api/healthz` returns HTTP 200 for the current staged rollout, even when checkout and self-serve remain disabled.
+5. Before enabling public self-serve, confirm `/api/healthz` reports `checkoutReady=true` and `selfServeReady=true`, then verify `/terms`, `/privacy`, and the permanent `301` redirect on the live edge.

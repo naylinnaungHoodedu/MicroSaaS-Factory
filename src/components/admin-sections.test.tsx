@@ -136,6 +136,27 @@ describe("AdminConsoleSection", () => {
             pricingVisible: true,
             checkoutVisible: false,
           },
+          goLiveChecklist: [
+            {
+              id: "firebase",
+              label: "Firebase client + admin",
+              status: "attention",
+              detail: "Firebase client and admin credentials both need to be configured.",
+            },
+            {
+              id: "legal",
+              label: "Terms + privacy routes",
+              status: "ready",
+              detail: "Launch-baseline legal pages are shipped in the public surface.",
+              href: "/terms",
+            },
+            {
+              id: "redirect",
+              label: "Permanent HTTPS redirect",
+              status: "manual",
+              detail: "Confirm the public edge returns HTTP 301 before long HSTS.",
+            },
+          ],
           latestRuns: [],
           plansById: new Map(),
         } as never}
@@ -146,5 +167,8 @@ describe("AdminConsoleSection", () => {
     expect(html).toContain("signup intent ready");
     expect(html).toContain("checkout prep not ready");
     expect(html).toContain("self-serve not ready");
+    expect(html).toContain("Go-live checklist");
+    expect(html).toContain("Terms + privacy routes");
+    expect(html).toContain("Permanent HTTPS redirect");
   });
 });

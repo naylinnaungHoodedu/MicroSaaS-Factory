@@ -152,6 +152,8 @@ describe("/login page", () => {
     expect(html).not.toContain("Firebase Panel");
     expect(html).toContain('autoComplete="email"');
     expect(html).toContain('autoComplete="off"');
+    expect(html).toContain("Terms");
+    expect(html).toContain("Privacy");
   });
 
   it("exports canonical login metadata", () => {

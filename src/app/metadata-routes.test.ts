@@ -57,6 +57,8 @@ describe("metadata routes", () => {
       expect.arrayContaining([
         "https://microsaasfactory.io/",
         "https://microsaasfactory.io/login",
+        "https://microsaasfactory.io/terms",
+        "https://microsaasfactory.io/privacy",
         "https://microsaasfactory.io/waitlist",
         "https://microsaasfactory.io/pricing",
         "https://microsaasfactory.io/signup",
