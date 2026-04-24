@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: SITE_NAME,
     short_name: "MSF",
     description: SITE_DESCRIPTION,
+    categories: ["business", "productivity", "developer tools"],
     start_url: "/",
     display: "standalone",
     background_color: SITE_THEME_COLOR,

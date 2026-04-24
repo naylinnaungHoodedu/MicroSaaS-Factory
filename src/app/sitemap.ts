@@ -12,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: number;
   }> = [
     { path: "/", priority: 1, changeFrequency: "weekly" as const },
-    { path: "/login", priority: 0.8, changeFrequency: "weekly" as const },
+    { path: "/login", priority: 0.7, changeFrequency: "weekly" as const },
     { path: "/terms", priority: 0.5, changeFrequency: "monthly" as const },
     { path: "/privacy", priority: 0.5, changeFrequency: "monthly" as const },
   ];
@@ -28,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (funnel.pricingVisible) {
     entries.push({
       path: "/pricing",
-      priority: 0.8,
+      priority: 0.9,
       changeFrequency: "weekly" as const,
     });
   }

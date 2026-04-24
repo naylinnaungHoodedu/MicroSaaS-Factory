@@ -20,6 +20,20 @@ describe("GET /api/healthz", () => {
       ok: true,
       generatedAt: "2026-04-20T00:00:00.000Z",
       appUrl: "https://microsaasfactory.io",
+      guidance: {
+        summary: "Repo-controlled launch work still needs self-serve activation, stripe checkout, and automation scheduling. External verification remains required after deploy.",
+        nextStep:
+          "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations.",
+        repoControlledIssues: [
+          "Self-serve activation: Firebase client and admin readiness still block self-serve activation.",
+        ],
+        externalVerification: [
+          "Verify /api/healthz returns selfServeReady=true and checkoutReady=true after deploy.",
+          "Confirm http://microsaasfactory.io returns HTTP 301 to HTTPS before long HSTS.",
+          "Exercise live Stripe checkout successfully before leaving checkoutEnabled=true.",
+          "Confirm SPF, DKIM, DMARC, and CAA records for the active sender domain.",
+        ],
+      },
       readiness: {
         pricingReady: true,
         signupIntentReady: true,
@@ -37,6 +51,20 @@ describe("GET /api/healthz", () => {
       ok: true,
       generatedAt: "2026-04-20T00:00:00.000Z",
       appUrl: "https://microsaasfactory.io",
+      guidance: {
+        summary: "Repo-controlled launch work still needs self-serve activation, stripe checkout, and automation scheduling. External verification remains required after deploy.",
+        nextStep:
+          "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations.",
+        repoControlledIssues: [
+          "Self-serve activation: Firebase client and admin readiness still block self-serve activation.",
+        ],
+        externalVerification: [
+          "Verify /api/healthz returns selfServeReady=true and checkoutReady=true after deploy.",
+          "Confirm http://microsaasfactory.io returns HTTP 301 to HTTPS before long HSTS.",
+          "Exercise live Stripe checkout successfully before leaving checkoutEnabled=true.",
+          "Confirm SPF, DKIM, DMARC, and CAA records for the active sender domain.",
+        ],
+      },
       readiness: {
         pricingReady: true,
         signupIntentReady: true,
@@ -52,6 +80,20 @@ describe("GET /api/healthz", () => {
       ok: false,
       generatedAt: "2026-04-20T00:00:00.000Z",
       appUrl: "https://microsaasfactory.io",
+      guidance: {
+        summary: "Repo-controlled launch work still needs public pricing, signup intent, self-serve activation, stripe checkout, and automation scheduling. External verification remains required after deploy.",
+        nextStep:
+          "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations.",
+        repoControlledIssues: [
+          "Public pricing: No visible public plans are available for public pricing.",
+        ],
+        externalVerification: [
+          "Verify /api/healthz returns selfServeReady=true and checkoutReady=true after deploy.",
+          "Confirm http://microsaasfactory.io returns HTTP 301 to HTTPS before long HSTS.",
+          "Exercise live Stripe checkout successfully before leaving checkoutEnabled=true.",
+          "Confirm SPF, DKIM, DMARC, and CAA records for the active sender domain.",
+        ],
+      },
       readiness: {
         pricingReady: false,
         signupIntentReady: false,
@@ -69,6 +111,20 @@ describe("GET /api/healthz", () => {
       ok: false,
       generatedAt: "2026-04-20T00:00:00.000Z",
       appUrl: "https://microsaasfactory.io",
+      guidance: {
+        summary: "Repo-controlled launch work still needs public pricing, signup intent, self-serve activation, stripe checkout, and automation scheduling. External verification remains required after deploy.",
+        nextStep:
+          "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations.",
+        repoControlledIssues: [
+          "Public pricing: No visible public plans are available for public pricing.",
+        ],
+        externalVerification: [
+          "Verify /api/healthz returns selfServeReady=true and checkoutReady=true after deploy.",
+          "Confirm http://microsaasfactory.io returns HTTP 301 to HTTPS before long HSTS.",
+          "Exercise live Stripe checkout successfully before leaving checkoutEnabled=true.",
+          "Confirm SPF, DKIM, DMARC, and CAA records for the active sender domain.",
+        ],
+      },
       readiness: {
         pricingReady: false,
         signupIntentReady: false,

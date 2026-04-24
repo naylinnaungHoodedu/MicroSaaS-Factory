@@ -7,7 +7,7 @@ import { Section } from "@/components/ui";
 export const metadata: Metadata = buildPublicPageMetadata({
   title: "Terms",
   description:
-    "Launch-baseline terms for MicroSaaS Factory founder access, billing, integrations, and operator-controlled rollout.",
+    "Launch-baseline terms for MicroSaaS Factory founder access, self-serve onboarding, billing, and integrations.",
   path: "/terms",
 });
 
@@ -15,7 +15,7 @@ const sections = [
   {
     title: "Service posture",
     body:
-      "MicroSaaS Factory is a web application for solo founders managing research, validation, specing, launch readiness, and connected operating workflows. Access can remain operator-controlled in some environments even when public pricing or signup is visible.",
+      "MicroSaaS Factory is a web application for solo founders managing research, validation, specing, launch readiness, connected operating workflows, and workspace-aware billing. Depending on the live environment configuration, access can be self-serve, invite-assisted, or operator-gated for specific rollout steps.",
   },
   {
     title: "Accounts and access",
@@ -25,7 +25,7 @@ const sections = [
   {
     title: "Billing and subscriptions",
     body:
-      "When platform billing is enabled, paid access is processed through Stripe Checkout. Invite-beta workspaces, trial workspaces, and active paid workspaces can follow different upgrade paths based on the current subscription state and operator rollout controls.",
+      "When platform billing is enabled, paid access is processed through Stripe Checkout. Workspaces can move through beta, trial, active, canceled, or related subscription states depending on the current billing record, checkout posture, and rollout configuration.",
   },
   {
     title: "Connected systems",
@@ -35,7 +35,7 @@ const sections = [
   {
     title: "Availability and rollout",
     body:
-      "Features can be staged, hidden, or operator-gated while production readiness is verified. Public pricing, self-serve provisioning, checkout visibility, and automation can be enabled independently.",
+      "Features can be staged, hidden, or operator-gated while production readiness is verified. Public pricing, self-serve provisioning, checkout visibility, automation, and invite-token fallback can be enabled independently.",
   },
   {
     title: "Acceptable use",

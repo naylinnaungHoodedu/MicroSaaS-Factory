@@ -1199,3 +1199,740 @@ This addendum records the full implementation and verification pass completed on
 - The remaining open items are production platform, DNS, and readiness-state issues rather than unresolved source-code regressions in the current folder.
 
 *Addendum logged on April 21, 2026 at 2:55 AM EDT after a deep post-deployment verification audit of the completed work.*
+
+## April 21, 2026 Commercial Readiness Hardening Addendum
+
+### Governance Bootstrap Completed
+
+- Added `/CODEOWNERS` and mapped repository accountability to Nay Linn Aung (`na27@hood.edu`).
+- Synchronized the root `AGENTS.md` owner metadata, controlled-path ownership table, confirm-list exception holder entries, and the active release posture to the new owner map.
+- Preserved the repo's stated prelaunch posture while keeping regulated-release claims blocked behind the still-open SBOM, traceability, and formal CR workflow gaps.
+
+### Public And Admin Commercialization Hardening Completed
+
+- Hardened the public marketing and auth surface so rollout posture is explicit instead of implied:
+  - footer copy now derives from live funnel state on the public funnel pages
+  - homepage zero-value social proof now falls back to trust and rollout cards instead of showing raw `0` counts
+  - pricing now states why checkout is unavailable when Stripe readiness or the rollout flag is incomplete
+  - signup now states when self-serve is intentionally unavailable and remains in operator-reviewed mode
+  - login now states when invite-token access remains the production-safe path
+- Strengthened keyboard focus visibility in `src/app/globals.css` for dark-surface controls.
+- Expanded the admin commercialization guidance with an explicit sequencing panel and operator reminder to run the public-edge verification script before long HSTS or public self-serve.
+
+### Build, CI, And Documentation Hardening Completed
+
+- Pinned the Node 20 Docker base image by digest in `Dockerfile`.
+- Added a Playwright browser-regression gate to `cloudbuild.yaml` using the Node 20 pinned image before image build and Cloud Run deploy.
+- Updated `.env.example`, `README.md`, and `scripts/cloud-ops-runbook.md` so the rollout contract now stays aligned across:
+  - Firebase readiness
+  - Stripe readiness
+  - long-HSTS promotion
+  - public-edge verification
+  - staged commercialization sequencing
+
+### Verification Completed
+
+- Confirmed successful execution of:
+  - `git diff --check`
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `npm audit --audit-level=high`
+  - `.\scripts\verify-public-edge.ps1 -Domain microsaasfactory.io -ExpectPermanentRedirect`
+- Final repository-side verification results:
+  - `153` passing Vitest tests
+  - `13` passing Playwright tests
+  - clean ESLint run
+  - clean Next.js production build
+- `npm audit --audit-level=high` still reports only `8` low-severity transitive findings in the Firebase Admin / Google storage chain and no High or Critical findings.
+- `docker build -t microsaas-factory-local .` remains blocked locally because the Docker Desktop engine pipe `//./pipe/dockerDesktopLinuxEngine` is unavailable in this environment.
+
+### Live Edge Status Reconfirmed
+
+- Re-ran the public-edge verifier against `https://microsaasfactory.io` and reconfirmed:
+  - HSTS present with `max-age=86400`
+  - enforced `Content-Security-Policy`
+  - `/robots.txt`, `/sitemap.xml`, `/terms`, `/privacy`, and `/api/healthz` all return `200`
+  - `/api/healthz` still reports `pricingReady=true`, `signupIntentReady=true`, `checkoutReady=false`, `selfServeReady=false`, and `automationReady=true`
+- The same live-edge verification still fails only on external rollout dependencies:
+  - apex HTTP redirect is still `302`, not `301`
+  - SPF record is still missing
+  - DMARC record is still missing
+  - CAA records are still missing
+
+### Current Conclusion
+
+- The current folder now contains the completed commercial-readiness hardening implementation for governance bootstrap, public funnel clarity, admin rollout guidance, CI gating, and Docker digest pinning.
+- Remaining public-launch blockers are still external rollout and governance-completeness tasks rather than unresolved repository-side regressions.
+
+*Addendum logged on April 21, 2026 at 1:55 PM EDT after the CODEOWNERS bootstrap, commercial-readiness hardening implementation, and full verification pass.*
+
+## April 22, 2026 Full Public Launch Completion Addendum
+
+### Launch-Completion Hardening Extended
+
+- Added `COMMERCIAL_LAUNCH_REPORT.md` as the dedicated standalone execution and verification report for this launch wave.
+- Updated `scripts/verify-public-edge.ps1` so production edge verification now:
+  - correctly detects CAA records through DNS-over-HTTPS fallback
+  - checks SPF across the apex and `send.<domain>` sender host pattern
+  - avoids the earlier false-negative CAA result
+- Updated `scripts/cloud-ops-runbook.md` so sender-domain guidance matches the new verifier.
+- Hardened Cloud Build E2E execution in `cloudbuild.yaml` and `playwright.config.ts` so Playwright can run reliably in Cloud Build instead of timing out on startup.
+
+### External Operations Completed
+
+- Enabled the Firebase Management, Identity Toolkit, and API Keys services in project `naylinnaung`.
+- Added DNS records to the `microsaasfactory-io` Cloud DNS zone:
+  - `send.microsaasfactory.io TXT "v=spf1 -all"`
+  - `_dmarc.microsaasfactory.io TXT "v=DMARC1; p=quarantine; pct=100"`
+- Reconfirmed existing apex CAA records:
+  - `0 issue "pki.goog"`
+  - `0 issuewild "pki.goog"`
+- Re-ran Cloud Build and successfully deployed:
+  - build ID `e046f0ea-cf5b-4bed-8596-4daf70629283`
+  - image `us-central1-docker.pkg.dev/naylinnaung/microsaas-factory/web:deploy-20260422-2`
+  - image digest `sha256:1cd70d0ed4b94c07e0e1103d42ad6df35b9e55baf5ea19ae9c9d7a25f9a6e73f`
+  - Cloud Run revision `microsaas-factory-00010-ggz`
+  - Cloud Run traffic `100%`
+- Reconfigured or confirmed platform automation:
+  - Cloud Scheduler jobs enabled for validation CRM and live ops
+  - logging metric `microsaas_factory_automation_problem_count` present
+  - alert policy `MicroSaaS Factory automation problems` present and enabled
+- Successfully triggered both authenticated internal automation routes against production and confirmed the Firestore `automationRuns` document remained persisted and updated.
+
+### Verification Completed
+
+- Confirmed successful execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `npm audit --audit-level=high`
+  - `gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE_TAG=deploy-20260422-2`
+  - `.\scripts\verify-public-edge.ps1 -Domain microsaasfactory.io -ExpectPermanentRedirect`
+- Final local verification remained green:
+  - `153` passing Vitest tests
+  - `13` passing Playwright tests
+- `npm audit --audit-level=high` still reports only `8` low-severity transitive findings and no High or Critical findings.
+- Local Docker verification remains blocked by the unavailable Docker Desktop Linux engine pipe.
+
+### Remaining Launch Blockers
+
+- `https://microsaasfactory.io/api/healthz` still reports:
+  - `checkoutReady=false`
+  - `selfServeReady=false`
+- Edge verification now fails only on the HTTP redirect posture:
+  - apex HTTP still returns `302` instead of the required `301`
+- Firebase bootstrap remains incomplete:
+  - the project services were enabled
+  - but adding Firebase resources to the project returned `PERMISSION_DENIED`
+- Stripe platform launch remains incomplete:
+  - no platform Stripe secret or webhook secret exists in Secret Manager
+- Final feature-flag flips for self-serve and checkout were therefore intentionally not performed.
+
+*Addendum logged on April 22, 2026 at 12:05 AM EDT after deploy completion, DNS updates, scheduler/monitoring verification, and production launch-state audit.*
+
+## April 22, 2026 Guided Public Launch Alignment Addendum
+
+### Guided Launch Experience Completed
+
+- Implemented the guided public launch refinement wave across the live commercialization surface.
+- The public pages now read from a shared guided-launch contract instead of route-local rollout copy.
+- Completed public-surface alignment for:
+  - homepage
+  - pricing
+  - signup
+  - founder login
+  - waitlist
+- Added shared guided-launch presentation for:
+  - launch posture
+  - operator-control explanation
+  - target flag posture
+  - prioritized blockers
+  - trust / proof cards
+- Aligned the founder workspace billing section so authenticated founders now see the same commercialization posture as public visitors.
+- Expanded the admin console so the target launch posture is explicit:
+  - `platformBillingEnabled=true`
+  - `publicSignupEnabled=true`
+  - `selfServeProvisioningEnabled=false`
+  - `checkoutEnabled=false`
+- Updated rollout documentation in:
+  - `README.md`
+  - `scripts/cloud-ops-runbook.md`
+- Added and updated automated coverage for the shared funnel, founder billing view model, admin commercialization target, and the refreshed public pages.
+
+### Verification Completed
+
+- Confirmed successful local execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `npm audit --audit-level=high`
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\verify-public-edge.ps1 -Domain microsaasfactory.io -ExpectPermanentRedirect`
+- Final local verification totals after this pass:
+  - `154` passing Vitest tests
+  - `13` passing Playwright tests
+  - clean ESLint run
+  - clean Next.js production build
+- `npm audit --audit-level=high` still reports no High or Critical findings and only the pre-existing `8` low-severity transitive findings.
+- `docker build -t microsaas-factory-local .` remains blocked by local Docker environment state:
+  - Docker Desktop Linux engine pipe `//./pipe/dockerDesktopLinuxEngine` unavailable
+
+### Production Deployment Completed
+
+- Submitted Cloud Build rollout with:
+  - `gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE_TAG=deploy-20260422-3`
+- Final successful Cloud Build:
+  - build ID `c4dd7b9c-b1a1-4fa8-9b7e-735db88a97cb`
+  - image `us-central1-docker.pkg.dev/naylinnaung/microsaas-factory/web:deploy-20260422-3`
+  - image digest `sha256:78c8f80f548112e42e00a46ed526a5d34e5d2c18aa28dd816094ceddb7efe8b5`
+  - status `SUCCESS`
+- Cloud Run rollout:
+  - revision `microsaas-factory-00011-6kb`
+  - `100%` traffic on the new revision
+- The deploy completed with the existing unauthenticated IAM binding warning, but the new revision rolled out successfully.
+
+### Post-Deploy Live State
+
+- Re-ran the public-edge verifier against `https://microsaasfactory.io`.
+- Reconfirmed live production state after deploy:
+  - HSTS present with `max-age=86400`
+  - enforced CSP present
+  - `/robots.txt`, `/sitemap.xml`, `/terms`, `/privacy`, and `/api/healthz` return `200`
+  - `/api/healthz` reports `pricingReady=true`, `signupIntentReady=true`, `checkoutReady=false`, `selfServeReady=false`, and `automationReady=true`
+  - sender SPF, DMARC, and CAA all pass
+- Reconfirmed the remaining live blocker is still external:
+  - apex HTTP redirect remains `302` instead of `301`
+
+### Current Conclusion
+
+- The current folder now contains the completed guided public launch alignment implementation and the corresponding production deployment evidence.
+- Public pricing and guided signup remain live, while self-serve activation and checkout were correctly left disabled.
+- The remaining launch blockers are still:
+  - incomplete Firebase production readiness
+  - missing Stripe production readiness inputs
+  - apex HTTP redirect still returning `302`
+
+*Addendum logged on April 22, 2026 at 1:14 am EDT after guided public launch implementation, full local verification, Cloud Build deployment, and post-deploy edge verification.*
+
+## April 22, 2026 Full Self-Serve Launch Wave Implementation Addendum
+
+### Scope Completed In The Current Folder
+
+- Added the contract-first onboarding governance pack under `contracts/onboarding/`:
+  - nested `AGENTS.md`
+  - `MODEL_CARD.md`
+  - `DATASET_CARD.md`
+  - versioned onboarding entity, transition, and launch-readiness contracts
+- Updated root governance in `AGENTS.md` so `/contracts/**` is now explicitly classified as `CONTROLLED`.
+- Reworked the shared public funnel model for the full launch target while keeping the existing public route contract stable:
+  - `/`
+  - `/pricing`
+  - `/signup`
+  - `/login`
+  - `/waitlist`
+  - `/api/signup-intents`
+  - `/api/auth/firebase/session`
+  - `/api/healthz`
+- Rebuilt the public surface around a persistent shared header, product-proof landing content, clearer CTA hierarchy, self-serve-first messaging, and invite-token fallback.
+- Updated founder and operator surfaces so the target posture is now explicitly:
+  - `platformBillingEnabled=true`
+  - `publicSignupEnabled=true`
+  - `selfServeProvisioningEnabled=true`
+  - `checkoutEnabled=true`
+- Updated legal and metadata copy to reflect self-serve onboarding plus checkout behavior more accurately.
+- Updated rollout and environment artifacts:
+  - `.env.example`
+  - `README.md`
+  - `scripts/cloud-ops-runbook.md`
+  - `playwright.config.ts`
+  - `cloudbuild.yaml`
+
+### Verification Completed In This Session
+
+- Confirmed successful local execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+- Final local verification totals after this pass:
+  - `153` passing Vitest tests
+  - `14` passing Playwright tests
+  - clean ESLint run
+  - clean Next.js production build
+- The browser suite now explicitly covers:
+  - staged public pricing with checkout hidden
+  - self-serve signup through test Google
+  - self-serve signup through test email-link
+  - duplicate founder-email recovery to login
+  - checkout button visibility for eligible founders
+  - pricing `billing=cancelled` and `billing=error` return states
+  - founder dashboard `billing=success` return state
+- `npm audit --audit-level=high` was not re-run in this implementation-only pass.
+- `docker build -t microsaas-factory-local .` was not re-run in this pass and remains subject to the local Docker environment state.
+
+### Manual Rollout Handoff Still Required
+
+- Human-executed production work still remains before the full launch flags can stay on in production:
+  - provision Firebase client and admin credentials
+  - provision Stripe platform secret, webhook secret, and live price-map IDs
+  - apply Cloud Run runtime configuration
+  - deploy through `cloudbuild.yaml`
+  - run `pwsh ./scripts/verify-public-edge.ps1 -Domain microsaasfactory.io -ExpectLaunchReady`
+  - confirm `/api/healthz` reports `selfServeReady=true` and `checkoutReady=true`
+  - confirm the apex HTTP redirect returns `301`
+  - confirm SPF, DKIM, DMARC, and CAA posture
+- No live deployment, live cloud mutation, or DNS change was executed in this session.
+
+*Addendum logged on April 22, 2026 at 2:00 am EDT after the full self-serve launch wave implementation, local verification, and rollout handoff documentation update.*
+
+## April 22, 2026 Commercial Polish Wave Addendum
+
+### Scope Completed In This Session
+
+- Implemented the commercial-polish wave on top of the current guided-launch branch without reverting the existing in-progress rollout work.
+- Added the shared standard-layer public content module:
+  - `src/lib/public-content.ts`
+  - extracted workflow copy, founder-fit cards, proof cards, FAQ content, comparison rows, and closing CTA content
+- Replaced the fixed root JSON-LD approach with page-aware structured-data generation:
+  - `src/app/public-metadata.ts`
+  - `src/components/public-structured-data.tsx`
+  - removed the hardcoded root software-application script from `src/app/layout.tsx`
+- Reworked the public commercial surfaces around the new shared content and schema layer:
+  - `/`
+  - `/pricing`
+  - `/signup`
+  - `/login`
+  - `/waitlist`
+- Added reusable public-commercialization presentation components in `src/components/public-ui.tsx` for:
+  - evidence grids
+  - rollout comparison rows
+  - FAQ rendering
+  - closing CTA sections
+- Improved public-form UX without changing persisted fields or route contracts:
+  - clearer signup and waitlist framing
+  - stronger duplicate-workspace recovery messaging
+  - clearer field guidance and form-state summaries
+- Aligned founder and operator commercialization messaging with the polished public narrative:
+  - `src/components/dashboard-sections.tsx`
+  - `src/components/admin-sections.tsx`
+- Kept runtime truth and rollout semantics intact:
+  - no feature-flag behavior changes
+  - no persisted onboarding or billing schema changes
+  - no contract changes under `contracts/**`
+
+### Verification Completed In This Session
+
+- Confirmed successful local execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `npm audit --audit-level=high`
+- Final local verification totals after this pass:
+  - `160` passing Vitest tests
+  - `14` passing Playwright tests
+  - clean ESLint run
+  - clean Next.js production build
+- `npm audit --audit-level=high` reports:
+  - no High findings
+  - no Critical findings
+  - `8` low-severity transitive findings in the existing Firebase Admin / Google storage dependency chain
+- Added or updated automated coverage for:
+  - shared marketing-content builders
+  - structured-data and metadata builders
+  - refreshed public page rendering
+  - founder/admin commercialization alignment
+  - public-funnel browser assertions for CTA, FAQ, comparison, and cross-link behavior
+
+### Residual Non-Code Blockers
+
+- No live GCP, Firebase, Stripe, DNS, or deployment mutation was performed in this session.
+- Production readiness remains unchanged from the repo/runtime posture before this wave:
+  - `checkoutReady=false`
+  - `selfServeReady=false`
+- Remaining non-code blockers are still:
+  - Firebase production readiness inputs not configured
+  - Stripe production secrets and live price-map inputs not configured
+  - apex HTTP redirect still expected to require external `301` completion
+
+*Addendum logged on April 22, 2026 at 2:36 am EDT after the commercial-polish implementation, full local verification, and required activity-log update.*
+
+---
+
+## April 23, 2026 - Self-Serve Launch Refresh
+
+### Implementation Completed In This Session
+
+- Reworked the public founder funnel to be more outcome-first while preserving the existing route contract:
+  - `/`
+  - `/pricing`
+  - `/signup`
+  - `/login`
+  - `/waitlist`
+- Refreshed the shared public presentation layer:
+  - `src/components/public-shell.tsx`
+  - `src/components/public-ui.tsx`
+  - `src/app/globals.css`
+  - `src/app/public-metadata.ts`
+  - `src/app/manifest.ts`
+  - `src/app/sitemap.ts`
+  - `src/lib/site.ts`
+- Reshaped signup and login toward the final self-serve launch posture without changing persisted onboarding fields:
+  - stronger plan context on signup
+  - clearer staged-workspace and activation steps
+  - Firebase-first founder return path when enabled
+  - invite-token recovery kept visible as fallback
+- Reworked founder and operator internal commercialization surfaces:
+  - founder dashboard now presents a clearer control-tower and billing-readiness view
+  - admin now separates repo-controlled launch work from external rollout verification
+- Added shared go-live guidance in `src/lib/server/runtime-config.ts` and exposed that guidance in `/api/healthz` so public, founder, and operator surfaces can derive next-step language from the same readiness facts.
+- Updated go-live artifacts and checked-in governance-facing docs:
+  - `.env.example`
+  - `README.md`
+  - `scripts/cloud-ops-runbook.md`
+  - onboarding contract documentation under `contracts/onboarding/v1/`
+- Expanded automated coverage to match the refreshed copy and flow contracts:
+  - updated unit tests for public routes, shared shell, runtime readiness, dashboard, and admin
+  - updated Playwright expectations for the refreshed headings and CTA copy
+
+### Verification Completed In This Session
+
+- Confirmed successful local execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+- Final local verification totals after this pass:
+  - `161` passing Vitest tests
+  - `14` passing Playwright tests
+  - clean ESLint run
+  - clean Next.js production build
+- `npm audit --audit-level=high` reports:
+  - no High findings
+  - no Critical findings
+  - `11` remaining low/moderate transitive findings in the existing Firebase Admin / Google storage chain
+- Attempted local deterministic container verification with:
+  - `docker build -t microsaas-factory-local .`
+- Docker verification could not complete in this environment because the local Docker engine pipe was unavailable (`//./pipe/dockerDesktopLinuxEngine` not found).
+
+### Residual Non-Code Blockers
+
+- No live GCP, Firebase, Stripe, or DNS mutation was performed in this session.
+- The final full public self-serve posture still depends on external rollout inputs and verification:
+  - production Firebase client/admin credentials
+  - production Stripe secret, webhook secret, and live price IDs
+  - live `/api/healthz` verification with repo-controlled issues cleared
+  - permanent apex HTTP `301`
+  - SPF, DKIM, DMARC, and CAA verification
+
+*Addendum logged on April 23, 2026 after the self-serve launch refresh, full local application verification, required documentation updates, and activity-log update.*
+
+---
+
+## April 23, 2026 - Public Funnel SEO Stabilization And Drift Detection
+
+### Implementation Completed In This Session
+
+- Stabilized the current April 23 public-funnel branch without reverting the existing in-progress launch-refresh work already present in the folder.
+- Replaced static route-level metadata exports on the founder-facing public routes with funnel-aware `generateMetadata` paths so SEO now follows the shared public posture model for:
+  - `/`
+  - `/pricing`
+  - `/signup`
+  - `/login`
+  - `/waitlist`
+- Added shared route SEO generation in `src/app/public-metadata.ts` so:
+  - route title
+  - route description
+  - canonical metadata
+  - Open Graph / Twitter description inputs
+  all derive from the same `PublicFunnelState` posture instead of route-local drift.
+- Aligned rendered JSON-LD and route metadata descriptions so the public schema output now matches the same route-level SEO description used by the page metadata builders.
+- Refined the founder-facing public story toward the requested hybrid trust-first posture in:
+  - `src/lib/server/funnel.ts`
+  - `src/components/public-shell.tsx`
+  - `src/lib/public-content.ts`
+  - `src/app/waitlist/page.tsx`
+  - `src/components/public-waitlist-form.tsx`
+- Rebalanced the guided-signup mode so the shared summary now leads with founder outcome and next-step clarity instead of rollout-first phrasing.
+- Removed stale founder-visible `invite-beta` wording from the active public commercialization copy where it created avoidable drift with the current guided-signup launch posture.
+- Extended `scripts/verify-public-edge.ps1` with backward-compatible live-parity checks for:
+  - homepage `<title>`
+  - homepage meta description
+  - homepage canonical
+  - manifest description
+  - sitemap URL coverage
+  - expected homepage posture phrases
+- Normalized homepage canonical comparison in the edge verifier so root trailing-slash differences do not create false-positive parity failures.
+- Updated `scripts/cloud-ops-runbook.md` with a concrete SEO/parity verification example for the current guided-signup public posture.
+- Expanded repository coverage for the stabilization wave in:
+  - public route page tests
+  - metadata route tests
+  - structured-data / metadata helper tests
+  - shared dashboard commercialization tests
+  - public-signup Playwright assertions
+
+### Verification Completed In This Session
+
+- Confirmed successful local execution of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+- Final local verification totals after this pass:
+  - `162` passing Vitest tests
+  - `14` passing Playwright tests
+  - clean ESLint run
+  - clean Next.js production build
+- `npm audit --audit-level=high` result on this pass:
+  - no High findings
+  - no Critical findings
+  - `11` remaining low/moderate transitive findings in the existing Firebase Admin / Google storage chain
+- Retried deterministic container verification with:
+  - `docker build -t microsaas-factory-local .`
+- Docker verification still could not complete in this environment because the local Docker engine pipe was unavailable:
+  - `//./pipe/dockerDesktopLinuxEngine`
+- Ran the upgraded live public-edge parity verification against `https://microsaasfactory.io` using the new expected homepage metadata, manifest text, sitemap paths, and posture phrases.
+- The verifier confirmed the intended repo-to-live drift on April 23, 2026:
+  - live homepage meta description still serves `Invite-beta founder operating system for research, validation, launch gating, and connected ops.`
+  - live manifest description still serves the same stale invite-beta wording
+  - live homepage HTML does not yet contain the new guided-signup summary phrase
+  - live homepage HTML does not yet contain the new `Launch readiness stays attached to the public promise.` section heading
+  - sitemap coverage matches the expected public route set
+  - homepage canonical parity passes after normalization
+  - `/api/healthz` still returns HTTP `200` with:
+    - `pricingReady=true`
+    - `signupIntentReady=true`
+    - `checkoutReady=false`
+    - `selfServeReady=false`
+    - `automationReady=true`
+
+### Residual Non-Code Blockers
+
+- No live deployment, secret mutation, Firebase mutation, Stripe mutation, or DNS mutation was performed in this session.
+- The live production site is now explicitly confirmed to be behind the current local repository for public funnel copy and SEO/manifest output.
+- Remaining rollout blockers outside this source pass still include:
+  - production Firebase readiness
+  - production Stripe readiness
+  - live checkout enablement
+  - live self-serve enablement
+  - final deployment of the current local public-funnel/SEO branch
+
+*Addendum logged on April 23, 2026 at 03:22 pm EDT after the public funnel SEO stabilization pass, verifier hardening, full local verification, Docker retry, and live parity audit.*
+
+---
+
+## April 23, 2026 - Verification Follow-Up And Local DB Read-Race Hardening
+
+### Implementation Completed In This Session
+
+- Performed a verification-only follow-up on the completed public funnel / SEO work to confirm there were no hidden runtime defects in the finished implementation.
+- Re-ran the local quality gates and inspected the completed public-funnel, SEO, and edge-verifier changes for actual defects rather than product-preference issues.
+- Found one real runtime issue during the clean Playwright follow-up:
+  - the standalone production server logged `SyntaxError: Unexpected end of JSON input` after the E2E suite completed
+- Traced that runtime signal to the local JSON backend read path in `src/lib/server/db.ts`.
+- Hardened the local database read path so transient JSON parse failures are retried before the request fails, which protects public-funnel metadata reads and other concurrent local reads during Windows / OneDrive file-replacement races.
+- Added regression coverage in `src/lib/server/db.local-write.test.ts` proving the local backend now survives a transient parse failure and successfully returns the database on retry.
+
+### Verification Completed In This Session
+
+- Confirmed successful local execution after the fix of:
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+- Final local verification totals after this follow-up fix:
+  - `163` passing Vitest tests
+  - `14` passing Playwright tests
+  - clean ESLint run
+  - clean Next.js production build
+- The prior standalone-server `Unexpected end of JSON input` signal no longer appeared on the post-fix E2E run.
+- One transient local environment issue did occur during the follow-up verification:
+  - `npm run build` briefly hit `EBUSY` on `.next/diagnostics/build-diagnostics.json`
+  - the retry succeeded without any source changes
+  - this behaved like a Windows / OneDrive file-lock condition on generated output rather than an application defect
+
+### Outcome
+
+- I do not currently see any remaining application errors or regressions in the completed work after this follow-up pass.
+- The only substantive issue uncovered by the double-check was the transient local JSON parse race, and that issue has now been fixed and re-verified.
+
+*Addendum logged on April 23, 2026 after the verification follow-up, local JSON backend hardening, and final green regression pass.*
+
+---
+
+## April 23, 2026 - Final Traceability Synchronization
+
+### Logging Completed In This Session
+
+- Performed a final traceability synchronization pass across the current folder after the completed public-funnel SEO stabilization and local JSON read-race hardening work.
+- Reviewed the latest completed implementation and verification activities against:
+  - `ACTIVITY_LOG.md`
+  - `DEVELOPMENT_ACTIVITY_LOG.md`
+- Confirmed the current folder already contains explicit logged coverage for:
+  - public funnel SEO stabilization
+  - verifier hardening
+  - live parity audit findings
+  - local JSON backend retry fix
+  - final green regression verification
+- Added this final addendum so the repository now contains an explicit “log completeness reviewed and synchronized” record instead of leaving that confirmation implicit.
+
+### Current Logging State
+
+- The current folder now contains logged traceability for the completed implementation, verification, residual blockers, and follow-up defect fix performed in this work cycle.
+- No additional source or runtime behavior changes were made in this pass beyond documentation synchronization in the trace logs themselves.
+
+*Addendum logged on April 23, 2026 at 03:54 pm EDT after the final log-completeness review and traceability synchronization pass.*
+
+---
+
+## April 23, 2026 - Whole-App UI/UX Overhaul Completion
+
+### Scope Completed
+
+- Implemented a whole-app UI/UX overhaul for the user-facing MicroSaaS Factory product surface.
+- Covered the public funnel plus the authenticated founder workspace:
+  - `/`
+  - `/pricing`
+  - `/signup`
+  - `/login`
+  - `/waitlist`
+  - `/app`
+  - `/app/crm`
+  - `/app/products/[productId]/[[...section]]`
+- Kept route structure, API contracts, server actions, persistence behavior, and auth/session semantics unchanged.
+
+### Design-System And Shell Changes
+
+- Rebuilt the shared visual foundation in `src/app/globals.css` with:
+  - stronger dark-surface hierarchy
+  - clearer panel depth and border rhythm
+  - improved button, input, and textarea states
+  - shared section and glass-panel styling
+  - reduced-motion handling
+- Reworked shared UI primitives in `src/components/ui.tsx` and `src/components/public-ui.tsx` so the product now uses more differentiated:
+  - section headers
+  - KPI cards
+  - stage rails
+  - status boards
+  - CTA blocks
+  - FAQ surfaces
+- Replaced the old wrapping header-link behavior with responsive menu patterns in:
+  - `src/components/public-shell.tsx`
+  - `src/app/app/layout.tsx`
+
+### Public Funnel Improvements
+
+- Reframed the homepage to lead with product value, workflow proof, and a prominent launch-status module rather than repeating posture copy across multiple cards.
+- Reworked pricing so plan comparison, billing posture, and commercialization readiness are clearer and more visually distinct.
+- Reworked signup so preparation guidance, founder/workspace continuity, and activation handoff are clearer before form submission.
+- Reworked login so Firebase return-path and invite-token fallback are visually separated and easier to understand.
+- Reworked waitlist so manual review is clearly presented as a deliberate secondary path, not a duplicate signup form.
+- Tightened public-copy content in `src/lib/public-content.ts` while preserving truthful rollout and readiness language.
+
+### Workspace Improvements
+
+- Reworked the founder app shell and dashboard to emphasize:
+  - next actions
+  - workspace status
+  - commercialization posture
+  - portfolio readiness
+- Reworked CRM and activity surfaces to improve scanability, action grouping, and visual density.
+- Reworked the product-lane header and navigation so stage context, lane status, and key metrics are clearer before entering deeper workflow sections.
+- Preserved all existing product workflow forms and server-action bindings while improving hierarchy through shared section, card, and navigation treatment.
+
+### Verification Completed
+
+- `npm run lint` -> passed
+- `npm test` -> passed (`163/163`)
+- `npm run build` -> passed
+- `npm run test:e2e` -> passed (`14/14`)
+- Performed a manual screenshot-based desktop/mobile UI review against a local server after implementation.
+- Generated manual review artifacts under `.local/manual-ui/`, including:
+  - public desktop pages
+  - public mobile pages
+  - dashboard
+  - CRM
+  - product overview
+  - product validate
+- During the final verification cycle, one parallel run attempted `npm run build` and `npm run test:e2e` simultaneously:
+  - `test:e2e` reported `Another next build process is already running`
+  - reran `npm run test:e2e` sequentially
+  - sequential rerun passed cleanly
+
+### Outcome
+
+- The redesign is implemented and re-verified end to end.
+- Final result: stronger visual hierarchy, clearer public conversion surfaces, improved workspace/product scanability, and preserved behavior across the existing route and action contracts.
+
+*Addendum logged on April 23, 2026 at 04:28 pm EDT after the whole-app UI/UX overhaul, full verification pass, and manual screenshot review.*
+
+## April 23, 2026 - Second-Pass Whole-App UI/UX Refinement Completion
+
+### Scope Completed
+
+- Implemented the second-pass whole-app UI/UX refinement on top of the existing April 23, 2026 overhaul already present in the dirty worktree.
+- Kept route, API, auth, persistence, and feature-flag behavior unchanged.
+- Covered:
+  - shared design system and shell primitives
+  - public funnel routes (`/`, `/pricing`, `/signup`, `/login`, `/waitlist`)
+  - founder workspace routes (`/app`, `/app/crm`, `/app/products/[productId]/[[...section]]`)
+  - shared public copy/view-model layers
+  - signup-intent success messaging in the public server-action layer
+
+### Design And Copy Refinements
+
+- Strengthened shared visual hierarchy in the reusable CSS and UI primitives:
+  - clearer differentiation between hero, readiness, proof, data, action, and empty-state surfaces
+  - improved CTA contrast and section rhythm
+  - more consistent sticky navigation and shell treatment
+- Reframed public-funnel copy toward founder-facing commercial clarity while keeping readiness prominent.
+- Removed raw public-facing readiness phrasing that previously exposed low-level technical/config state:
+  - public launch blockers now describe staged billing, identity, redirect, and sender-domain readiness in founder-readable language
+  - exact operational details remain in admin/health surfaces, tests, and repo logs
+- Tightened public route messaging so pricing, signup, reviewed intake, recovery, and workspace continuity read as one connected founder journey.
+
+### Workspace And Product UX Refinements
+
+- Reworked the founder dashboard to answer “what matters now” more directly:
+  - stronger next-action emphasis
+  - better grouped portfolio and billing posture summaries
+  - sanitized workspace launch-guidance copy derived from runtime readiness
+- Improved CRM and activity scanability with denser card hierarchy and clearer metadata grouping.
+- Tightened product-lane navigation and stage context through shared UI refinements and updated lane-top layout treatment.
+
+### Verification Completed
+
+- `npm run lint` -> passed
+- `npm test` -> passed (`163/163`)
+- `npm run build` -> passed
+- `npm run test:e2e` -> passed (`14/14`)
+
+### Manual Screenshot Review Completed
+
+- Performed a local production-style manual screenshot review from an isolated standalone server on `http://127.0.0.1:3200`
+- Isolated runtime inputs:
+  - `MICROSAAS_FACTORY_LOCAL_DB_FILE=.local/manual-ui-refinement-db.json`
+  - `MICROSAAS_FACTORY_ALLOW_UNSAFE_RUNTIME_FOR_TESTS=1`
+- Generated review artifacts under `.local/manual-ui-refinement/`
+- Reviewed public surfaces:
+  - home, pricing, signup, login, waitlist
+  - desktop and mobile captures
+- Reviewed authenticated surfaces:
+  - dashboard
+  - CRM
+  - product overview
+  - product validate
+
+### Deliverables
+
+- Added `UI_UX_REFINEMENT_REPORT.md` in the repo root with:
+  - baseline and scope
+  - design decisions
+  - verification results
+  - screenshot-review coverage
+  - residual UX debt left intentionally out of scope
+
+*Logged on April 23, 2026 at 05:08 pm EDT after the second-pass refinement, full automated verification, and isolated local screenshot review.*

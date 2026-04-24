@@ -46,9 +46,9 @@ export function ActivityFeed({
   return (
     <div className="space-y-4">
       {events.map((event) => (
-        <div
+        <article
           key={event.id}
-          className="rounded-[1.35rem] border border-white/10 bg-slate-950/55 p-5"
+          className="surface-proof rounded-[1.6rem] p-5 shadow-lg shadow-black/10"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -64,21 +64,30 @@ export function ActivityFeed({
                 {SOURCE_LABELS[event.source]}
               </span>
             </div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
               {formatDateTime(event.createdAt)}
             </p>
           </div>
-          <p className="mt-4 text-lg font-semibold text-white">{event.title}</p>
-          <p className="mt-2 text-sm leading-7 text-slate-300">{event.detail}</p>
-          {showProductLink && event.product ? (
-            <Link
-              href={`/app/products/${event.product.id}`}
-              className="mt-4 inline-flex text-sm text-cyan-200 underline underline-offset-4"
-            >
-              Open {event.product.name}
-            </Link>
-          ) : null}
-        </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
+            <div>
+              <p className="text-xl font-semibold tracking-tight text-white">{event.title}</p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">{event.detail}</p>
+            </div>
+            {showProductLink && event.product ? (
+              <div className="surface-data rounded-[1.2rem] border p-4">
+                <p className="eyebrow text-slate-500">Product lane</p>
+                <p className="mt-3 text-sm text-white">{event.product.name}</p>
+                <Link
+                  href={`/app/products/${event.product.id}`}
+                  className="mt-4 inline-flex text-sm text-cyan-200 underline underline-offset-4"
+                >
+                  Open {event.product.name}
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        </article>
       ))}
     </div>
   );

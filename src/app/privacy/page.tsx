@@ -7,7 +7,7 @@ import { Section } from "@/components/ui";
 export const metadata: Metadata = buildPublicPageMetadata({
   title: "Privacy",
   description:
-    "Launch-baseline privacy disclosure for MicroSaaS Factory authentication, billing, integrations, and essential storage.",
+    "Launch-baseline privacy disclosure for MicroSaaS Factory self-serve onboarding, authentication, billing, integrations, and essential storage.",
   path: "/privacy",
 });
 
@@ -15,12 +15,12 @@ const sections = [
   {
     title: "What this baseline covers",
     body:
-      "This privacy page describes the current MicroSaaS Factory launch posture. It covers founder onboarding, Firebase authentication, Firestore persistence, Stripe billing, Resend onboarding email flows, GitHub or GCP integration data, session cookies, and the email-link localStorage helper used during Firebase email-link sign-in.",
+      "This privacy page describes the current MicroSaaS Factory launch posture. It covers self-serve founder onboarding, Firebase authentication, Firestore persistence, Stripe billing, Resend onboarding email flows, GitHub or GCP integration data, session cookies, and the email-link localStorage helper used during Firebase email-link sign-in.",
   },
   {
     title: "Account and workspace data",
     body:
-      "The application stores founder identity details such as name, email address, workspace name, invite/signup status, and session metadata needed to let founders reopen their workspace.",
+      "The application stores founder identity details such as name, email address, workspace name, invite/signup status, activation state, subscription status, and session metadata needed to let founders reopen their workspace.",
   },
   {
     title: "Product and operating data",
@@ -45,7 +45,7 @@ const sections = [
   {
     title: "Retention and access",
     body:
-      "Data remains in the configured backing store for the environment, which can be local JSON in development or Firestore in production. Access is limited by application authentication, runtime secrets, and the operator-controlled rollout posture.",
+      "Data remains in the configured backing store for the environment, which can be local JSON in development or Firestore in production. Access is limited by application authentication, runtime secrets, and the live rollout posture for self-serve, billing, and invite-assisted access.",
   },
   {
     title: "Future updates",

@@ -55,6 +55,71 @@ function mapGoLiveStatusToPill(status: "ready" | "attention" | "manual") {
   return status === "attention" ? "error" : "warning";
 }
 
+function mapGuidedLaunchTargetStatus(actual: boolean, target: boolean) {
+  return actual === target ? "connected" : "warning";
+}
+
+function buildCommercializationSequence(overview: AdminOverview) {
+  return [
+    {
+      id: "pricing",
+      label: "1. Publish pricing",
+      status: overview.readiness.pricingReady
+        ? overview.flags.platformBillingEnabled
+          ? "ready"
+          : "manual"
+        : "attention",
+      detail: overview.readiness.pricingReady
+        ? overview.flags.platformBillingEnabled
+          ? "Visible plans are live. Checkout can still remain hidden while commercialization stays staged."
+          : "Visible plans are ready, but platform billing visibility is still intentionally off."
+        : "At least one visible public plan is required before pricing can be shown publicly.",
+    },
+    {
+      id: "signup",
+      label: "2. Open public signup",
+      status: overview.readiness.signupIntentReady
+        ? overview.flags.publicSignupEnabled
+          ? "ready"
+          : "manual"
+        : "attention",
+      detail: overview.readiness.signupIntentReady
+        ? overview.flags.publicSignupEnabled
+          ? "Public signup is live and can stage founder workspaces from the visible plan catalog."
+          : "Signup intent is technically ready, but the public signup flag is still off."
+        : "Signup intent remains blocked until a visible public plan exists.",
+    },
+    {
+      id: "self-serve",
+      label: "3. Open self-serve",
+      status: overview.readiness.selfServeReady
+        ? overview.flags.selfServeProvisioningEnabled
+          ? "ready"
+          : "manual"
+        : "attention",
+      detail: overview.readiness.selfServeReady
+        ? overview.flags.selfServeProvisioningEnabled
+          ? "Firebase client and admin readiness are green, and self-serve provisioning is live."
+          : "Firebase readiness is green, but self-serve provisioning is still intentionally disabled."
+        : "Self-serve must stay off until Firebase client and admin credentials are both verified.",
+    },
+    {
+      id: "checkout",
+      label: "4. Open checkout",
+      status: overview.readiness.checkoutReady
+        ? overview.flags.checkoutEnabled
+          ? "ready"
+          : "manual"
+        : "attention",
+      detail: overview.readiness.checkoutReady
+        ? overview.flags.checkoutEnabled
+          ? "Stripe checkout is live for eligible founder workspaces."
+          : "Stripe runtime checks are green, but checkout is still intentionally hidden behind the public flag."
+        : "Checkout must stay off until Stripe secret, webhook verification, app URL, and public price IDs are all verified.",
+    },
+  ] as const;
+}
+
 function formatAutomationMetricLabel(value: string) {
   return value
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -77,7 +142,7 @@ export function AdminLoginGate({
       <Section
         eyebrow="Internal Admin"
         title="Operator access required."
-        description="Enter the admin access key to issue invites and flip feature flags for the invite beta."
+        description="Enter the admin access key to issue invites, review onboarding state, and control the public launch flags."
       >
         {error === "invalid" ? (
           <div className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-sm text-rose-100">
@@ -117,11 +182,15 @@ export function AdminConsoleSection({
   reason?: string;
   viewModel: AdminPageViewModel;
 }) {
+  const commercializationSequence = buildCommercializationSequence(overview);
+  const launchStatus =
+    viewModel.launchGuidance.repoControlledIssues.length > 0 ? "warning" : "connected";
+
   return (
     <Section
       eyebrow="Admin Console"
-      title="Issue invites and control beta exposure."
-      description="Invite onboarding, public signup, self-serve provisioning, and checkout visibility are all controlled independently from this console."
+      title="Run the self-serve launch from one control room."
+      description="Invite onboarding, public signup, self-serve provisioning, and checkout visibility are controlled here, but the public story still needs to stay truthful to runtime readiness and live-edge verification."
     >
       {error === "flags_invalid" && reason ? (
         <div className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-sm text-rose-100">
@@ -154,7 +223,7 @@ export function AdminConsoleSection({
               Founder auth
             </p>
             <p className="mt-2 text-xl font-semibold text-white">
-              {overview.auth.firebaseEnabled ? "Invite beta + Firebase" : "Invite token only"}
+              {overview.auth.firebaseEnabled ? "Firebase + invite fallback" : "Invite token only"}
             </p>
             <p className="mt-2 text-sm text-slate-300">
               {overview.auth.firebaseEnabled
@@ -239,15 +308,111 @@ export function AdminConsoleSection({
           </div>
         </div>
 
+        <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+            Founder-facing narrative
+          </p>
+          <p className="mt-3 text-xl font-semibold text-white">
+            {viewModel.funnel.summary.title}
+          </p>
+          <p className="mt-3 text-sm leading-7 text-slate-300">
+            {viewModel.funnel.summary.detail}
+          </p>
+        </div>
+
         <div className="mt-6 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/10 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
-                Go-live checklist
+                Full launch target
+              </p>
+              <p className="mt-2 text-sm leading-7 text-cyan-50">
+                {viewModel.guidedLaunchTarget.summary}
+              </p>
+            </div>
+            <StatusPill status={launchStatus} />
+          </div>
+          <p className="mt-4 text-sm leading-7 text-cyan-100">
+            {viewModel.guidedLaunchTarget.description}
+          </p>
+          <p className="mt-4 text-sm leading-7 text-cyan-50">
+            {viewModel.launchGuidance.summary}
+          </p>
+          <div className="mt-5 grid gap-4 lg:grid-cols-4">
+            {viewModel.guidedLaunchTarget.flags.map((flag) => (
+              <div key={flag.flag} className="rounded-2xl border border-cyan-300/20 bg-slate-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">
+                    {flag.label}
+                  </p>
+                  <StatusPill status={mapGuidedLaunchTargetStatus(flag.actual, flag.target)} />
+                </div>
+                <p className="mt-3 text-sm leading-7 text-slate-200">
+                  target={String(flag.target)} / actual={String(flag.actual)}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {viewModel.guidedLaunchTarget.blockers.map((blocker) => (
+              <div key={blocker.id} className="rounded-2xl border border-cyan-300/20 bg-slate-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">
+                    {blocker.label}
+                  </p>
+                  <StatusPill status={mapGoLiveStatusToPill(blocker.status)} />
+                </div>
+                <p className="mt-3 text-sm leading-7 text-slate-200">{blocker.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Launch sequencing
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-300">
+                Open the full launch one control at a time: visible plans first, then public
+                signup, then self-serve, then checkout. Keep the final all-on flag posture behind
+                runtime readiness and external edge verification.
+              </p>
+            </div>
+            <StatusPill status={mapGoLiveStatusToPill("manual")} />
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-4">
+            {commercializationSequence.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                    {item.label}
+                  </p>
+                  <StatusPill status={mapGoLiveStatusToPill(item.status)} />
+                </div>
+                <p className="mt-3 text-sm leading-7 text-slate-300">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-sm leading-7 text-slate-300">
+            Before long HSTS or the final public launch flip, run{" "}
+            <span className="font-mono text-cyan-200">
+              pwsh ./scripts/verify-public-edge.ps1 -Domain microsaasfactory.io
+              -ExpectLaunchReady
+            </span>{" "}
+            and confirm `301`, SPF, DMARC, DKIM, and CAA records from the rollout runbook.
+          </p>
+        </div>
+
+        <div className="mt-6 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/10 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
+                Repo-controlled launch work
               </p>
               <p className="mt-2 text-sm leading-7 text-cyan-100">
-                This panel combines code-derived readiness with the manual public-edge and DNS
-                confirmations required before the final self-serve launch flips.
+                These are the checks the repo, runtime config, and deployed app can prove directly.
               </p>
             </div>
             <Link href="/privacy" className="text-sm text-cyan-100 underline underline-offset-4">
@@ -255,7 +420,7 @@ export function AdminConsoleSection({
             </Link>
           </div>
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
-            {viewModel.goLiveChecklist.map((item) => (
+            {viewModel.repoControlledChecklist.map((item) => (
               <div key={item.id} className="rounded-2xl border border-cyan-300/20 bg-slate-950/40 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">
@@ -272,6 +437,33 @@ export function AdminConsoleSection({
                     Open {item.href}
                   </Link>
                 ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                External launch verification
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-300">
+                These checks remain human rollout work even when the code is ready and deployed.
+              </p>
+            </div>
+            <StatusPill status={mapGoLiveStatusToPill("manual")} />
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {viewModel.externalLaunchChecklist.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                    {item.label}
+                  </p>
+                  <StatusPill status={mapGoLiveStatusToPill(item.status)} />
+                </div>
+                <p className="mt-3 text-sm leading-7 text-slate-300">{item.detail}</p>
               </div>
             ))}
           </div>

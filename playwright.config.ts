@@ -17,23 +17,31 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:3100",
     trace: "on-first-retry",
   },
-  webServer: {
-    command: "npm run e2e:server",
-    port: 3100,
-    reuseExistingServer: false,
-    env: {
-      ...process.env,
-      ADMIN_ACCESS_KEY: "microsaas-admin",
-      MICROSAAS_FACTORY_ALLOW_UNSAFE_RUNTIME_FOR_TESTS: "1",
-      MICROSAAS_FACTORY_FAKE_FIREBASE: "1",
-      MICROSAAS_FACTORY_DB_BACKEND: "local",
-      MICROSAAS_FACTORY_LOCAL_DB_FILE: e2eDbFile,
-      MICROSAAS_FACTORY_ENCRYPTION_KEY: "microsaas-factory-e2e",
-      STRIPE_PLATFORM_PRICE_MAP_JSON:
-        '{"growth":{"monthly":"price_monthly_growth","annual":"price_annual_growth"}}',
-      PORT: "3100",
-    },
-  },
+  webServer:
+    process.env.PLAYWRIGHT_SKIP_WEBSERVER === "1"
+      ? undefined
+      : {
+          command: "npm run e2e:server",
+          port: 3100,
+          reuseExistingServer: false,
+          timeout: 180_000,
+          env: {
+            ...process.env,
+            ADMIN_ACCESS_KEY: "microsaas-admin",
+            MICROSAAS_FACTORY_ALLOW_UNSAFE_RUNTIME_FOR_TESTS: "1",
+            MICROSAAS_FACTORY_FAKE_FIREBASE: "1",
+            MICROSAAS_FACTORY_DB_BACKEND: "local",
+            MICROSAAS_FACTORY_LOCAL_DB_FILE: e2eDbFile,
+            MICROSAAS_FACTORY_ENCRYPTION_KEY: "microsaas-factory-e2e",
+            MICROSAAS_FACTORY_APP_URL: "http://127.0.0.1:3100",
+            STRIPE_PLATFORM_SECRET_KEY: "sk_test_platform_e2e",
+            STRIPE_PLATFORM_WEBHOOK_SECRET: "whsec_platform_e2e",
+            STRIPE_PLATFORM_PRICE_MAP_JSON:
+              '{"growth":{"monthly":"price_monthly_growth","annual":"price_annual_growth"}}',
+            HOSTNAME: "0.0.0.0",
+            PORT: "3100",
+          },
+        },
   projects: [
     {
       name: "chromium",

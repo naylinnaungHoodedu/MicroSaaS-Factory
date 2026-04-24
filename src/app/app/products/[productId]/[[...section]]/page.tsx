@@ -109,7 +109,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   const { defaultTemplateId, gcpSummary, githubSummary, isArchived, latestRevenue, leadOptions, targetReleaseDateValue, touchpointsByLead } = viewModel;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <Section
         eyebrow="Product"
         title={bundle.product.name}
@@ -129,8 +129,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           </div>
         ) : null}
         <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-2">
+          <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+            <div className="space-y-3">
               <p className="text-sm text-slate-300">
                 {bundle.product.vertical} / {bundle.product.pricingHypothesis} / updated{" "}
                 {formatDate(bundle.product.updatedAt)}
@@ -138,21 +138,43 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
               <p className="text-sm text-slate-400">
                 Target user: {bundle.product.targetUser}
               </p>
-              <ProductTemplateBadge template={bundle.template} />
+              <div className="flex flex-wrap items-center gap-3">
+                <ProductTemplateBadge template={bundle.template} />
+                {isArchived ? (
+                  <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
+                    archived
+                  </span>
+                ) : null}
+                <StatusPill status={bundle.launchGate?.passed ? "connected" : "pending"} />
+                <StatusPill status={isSpecComplete(bundle.spec) ? "connected" : "pending"} />
+              </div>
               {bundle.product.clonedFromProductId ? (
                 <p className="text-sm text-slate-500">
                   Cloned from lane {bundle.product.clonedFromProductId}
                 </p>
               ) : null}
             </div>
-            <div className="flex flex-wrap gap-3">
-              {isArchived ? (
-                <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
-                  archived
-                </span>
-              ) : null}
-              <StatusPill status={bundle.launchGate?.passed ? "connected" : "pending"} />
-              <StatusPill status={isSpecComplete(bundle.spec) ? "connected" : "pending"} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <StatCard
+                label="Opportunities"
+                value={String(bundle.opportunities.length)}
+                detail="Scored research lanes"
+              />
+              <StatCard
+                label="Validation"
+                value={`${bundle.validationDecision.enthusiasticYesCount}/${bundle.validationDecision.totalLeads}`}
+                detail="Enthusiastic yes signals"
+                tone="accent"
+              />
+              <StatCard
+                label="MRR"
+                value={formatCurrency(
+                  latestRevenue?.monthlyRecurringRevenue ??
+                    bundle.product.metrics.monthlyRecurringRevenue,
+                )}
+                detail={bundle.launchGate?.passed ? "Launch gate passed" : "Launch gate pending"}
+                tone={bundle.launchGate?.passed ? "success" : "warning"}
+              />
             </div>
           </div>
           <StageRail stage={bundle.product.stage} />
@@ -163,10 +185,10 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       {currentSection === "" ? (
         <div className="space-y-8">
           <div id="product-settings">
-            <Section
+          <Section
               eyebrow="Lifecycle"
               title="Product settings and lane control"
-              description="Edit the strategy layer, archive or restore the lane, and branch it into a fresh validate-stage baseline."
+              description="Edit the strategy layer, archive or restore the lane, and branch it into a fresh validate-stage baseline without losing context."
             >
               <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
                 <form

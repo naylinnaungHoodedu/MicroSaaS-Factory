@@ -33,6 +33,7 @@ vi.mock("@/lib/firebase/config", () => ({
 import {
   assertFeatureFlagReadiness,
   assertProductionRuntimeReady,
+  buildRuntimeGoLiveGuidance,
   evaluateRuntimeReadiness,
   getRuntimeHealthSnapshot,
   getPublicPlatformPlans,
@@ -394,6 +395,23 @@ describe("runtime config readiness", () => {
       ok: true,
       generatedAt: expect.any(String),
       appUrl: "https://microsaasfactory.io",
+      guidance: {
+        summary:
+          "Repo-controlled launch work still needs self-serve activation, stripe checkout, and automation scheduling. External verification remains required after deploy.",
+        nextStep:
+          "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations.",
+        repoControlledIssues: [
+          "Self-serve activation: Firebase client and admin configuration are incomplete.",
+          "Stripe checkout: Missing STRIPE_PLATFORM_SECRET_KEY. Missing STRIPE_PLATFORM_WEBHOOK_SECRET. No Stripe plan-to-price mapping has been configured. Missing monthly/annual Stripe price IDs for: growth.",
+          "Automation scheduling: Missing INTERNAL_AUTOMATION_KEY.",
+        ],
+        externalVerification: [
+          "Verify /api/healthz returns selfServeReady=true and checkoutReady=true after deploy.",
+          "Confirm http://microsaasfactory.io returns HTTP 301 to HTTPS before long HSTS.",
+          "Exercise live Stripe checkout successfully before leaving checkoutEnabled=true.",
+          "Confirm SPF, DKIM, DMARC, and CAA records for the active sender domain.",
+        ],
+      },
       readiness: {
         pricingReady: true,
         signupIntentReady: true,
@@ -402,5 +420,32 @@ describe("runtime config readiness", () => {
         automationReady: false,
       },
     });
+  });
+
+  it("builds shared go-live guidance from readiness checks", () => {
+    const readiness = evaluateRuntimeReadiness({
+      flags: DEFAULT_FEATURE_FLAGS,
+      plans: [
+        {
+          id: "growth",
+          name: "Growth",
+          hidden: false,
+          monthlyPrice: 99,
+          annualPrice: 990,
+          features: ["Single founder"],
+        },
+      ],
+    });
+
+    const guidance = buildRuntimeGoLiveGuidance(readiness);
+
+    expect(guidance.summary).toContain("Repo-controlled launch work still needs");
+    expect(guidance.repoControlledIssues.join(" ")).toContain("Self-serve activation");
+    expect(guidance.externalVerification).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("HTTP 301"),
+        expect.stringContaining("DKIM"),
+      ]),
+    );
   });
 });

@@ -106,6 +106,20 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   proAiEnabled: false,
 };
 
+// Legacy constant name kept for compatibility with the existing funnel code and tests.
+export const GUIDED_PUBLIC_LAUNCH_TARGET_FLAGS = {
+  platformBillingEnabled: true,
+  publicSignupEnabled: true,
+  selfServeProvisioningEnabled: true,
+  checkoutEnabled: true,
+} as const satisfies Pick<
+  FeatureFlags,
+  | "platformBillingEnabled"
+  | "publicSignupEnabled"
+  | "selfServeProvisioningEnabled"
+  | "checkoutEnabled"
+>;
+
 export const DEFAULT_EMAIL_SEQUENCE = [
   { day: 0, key: "day-0", title: "Welcome", subject: "Welcome to your launch lane" },
   { day: 1, key: "day-1", title: "Nudge", subject: "Have you completed the core task?" },
@@ -136,7 +150,8 @@ export const DEFAULT_PUBLIC_GROWTH_PLAN = {
   annualPrice: 990,
   features: [
     "Single-founder workspace",
-    "Operator-reviewed signup and invite conversion",
+    "Self-serve signup, Firebase activation, and founder re-entry",
     "Research, spec, launch gate, and portfolio views",
+    "GitHub, Cloud Run, Stripe, and Resend connection lanes",
   ],
 } satisfies PlatformPlan;

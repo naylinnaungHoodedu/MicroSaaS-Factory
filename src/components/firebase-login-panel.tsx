@@ -81,6 +81,21 @@ async function exchangeFirebaseSession(input: {
   }
 }
 
+function StatusMessage({
+  tone,
+  message,
+}: {
+  tone: "error" | "info";
+  message: string;
+}) {
+  const toneClasses =
+    tone === "error"
+      ? "border-rose-400/25 bg-rose-500/10 text-rose-100"
+      : "border-cyan-300/20 bg-cyan-500/10 text-cyan-100";
+
+  return <div className={`rounded-[1.25rem] border p-4 text-sm ${toneClasses}`}>{message}</div>;
+}
+
 export function FirebaseLoginPanel({
   enabled,
   testMode = false,
@@ -271,50 +286,48 @@ export function FirebaseLoginPanel({
   }
 
   return (
-    <div className="space-y-5 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/5 p-6">
+    <div className="glass-panel space-y-5 rounded-[1.8rem] p-6 shadow-lg shadow-black/10">
       <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300/80">
-          {isInviteMode ? "Recommended Path" : "Firebase Sign-In"}
+        <p className="eyebrow text-cyan-300/80">
+          {isInviteMode ? "Recommended path" : "Firebase sign-in"}
         </p>
-        <h3 className="mt-3 text-xl font-semibold text-white">
+        <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white">
           {isInviteMode
             ? "Continue with Firebase"
             : isSignupMode
               ? "Activate the workspace with Firebase"
-              : "Sign in with Google or email link"}
+              : "Return with Google or email link"}
         </h3>
         <p className="mt-3 text-sm leading-7 text-slate-300">
           {isInviteMode
             ? "Use the invited founder email on this page. Firebase sign-in validates this exact invite before opening the workspace."
             : isSignupMode
               ? "Use the same founder email from the signup step. Firebase sign-in creates or reopens the founder workspace immediately."
-              : "Invite-based access and self-serve provisioning both use Firebase when it is available. Existing founders can sign in directly once their workspace email is provisioned."}
+              : "Firebase is the fastest return path for provisioned founders. Invite-token recovery still remains available when a deliberate fallback is needed."}
         </p>
       </div>
 
-      {status ? (
-        <div className="rounded-2xl border border-cyan-300/20 bg-cyan-500/10 p-4 text-sm text-cyan-100">
-          {status}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-sm text-rose-100">
-          {error}
-        </div>
-      ) : null}
+      {status ? <StatusMessage tone="info" message={status} /> : null}
+      {error ? <StatusMessage tone="error" message={error} /> : null}
 
-      <button
-        type="button"
-        className="button-primary w-full"
-        onClick={() => {
-          startTransition(() => {
-            void (testMode ? completeTestModeSignIn("google.com") : handleGoogleSignIn());
-          });
-        }}
-        disabled={busy}
-      >
-        {busy ? "Working..." : testMode ? "Continue with Test Google" : "Continue with Google"}
-      </button>
+      <div className="grid gap-3">
+        <button
+          type="button"
+          className="button-primary w-full"
+          onClick={() => {
+            startTransition(() => {
+              void (testMode ? completeTestModeSignIn("google.com") : handleGoogleSignIn());
+            });
+          }}
+          disabled={busy}
+        >
+          {busy ? "Working..." : testMode ? "Continue with Test Google" : "Continue with Google"}
+        </button>
+
+        <div className="rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+          Google is the fastest return path. Email link stays available for founders who need a quieter recovery flow tied to the same workspace email.
+        </div>
+      </div>
 
       <form onSubmit={(event) => void handleEmailLinkRequest(event)} className="space-y-4">
         <label className="space-y-2">
@@ -333,6 +346,11 @@ export function FirebaseLoginPanel({
             placeholder="founder@company.com"
             readOnly={emailLocked}
           />
+          <span className="field-hint">
+            {emailLocked
+              ? "This email is locked so activation stays tied to the staged founder identity."
+              : "Use the same founder email already associated with the workspace you want to open."}
+          </span>
         </label>
         {testMode ? (
           <button

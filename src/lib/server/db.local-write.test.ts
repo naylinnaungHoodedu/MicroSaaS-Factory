@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import path from "node:path";
 
 const fsState = vi.hoisted(() => {
   const files = new Map<string, string>();
@@ -102,5 +103,45 @@ describe("updateDatabase local fallback writes", () => {
       expect.stringMatching(/test-db\.json\.\d+\.tmp$/),
       { force: true },
     );
+  });
+
+  it("retries transient local JSON parse errors before failing", async () => {
+    const dataFile = path.resolve(process.cwd(), ".local/test-db.json");
+
+    fsState.files.set(
+      dataFile,
+      JSON.stringify(
+        {
+          workspaces: [
+            {
+              id: "workspace-1",
+              name: "Factory Lab",
+              ownerUserId: "user-1",
+              createdAt: "2026-04-18T00:00:00.000Z",
+              featureFlags: {
+                inviteOnlyBeta: true,
+                publicWaitlist: true,
+                publicSignupEnabled: false,
+                selfServeProvisioningEnabled: false,
+                checkoutEnabled: false,
+                platformBillingEnabled: false,
+                proAiEnabled: false,
+              },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    fsState.readFileMock
+      .mockImplementationOnce(async () => "")
+      .mockImplementationOnce(async () => "");
+
+    const database = await readDatabase();
+
+    expect(database.workspaces).toHaveLength(1);
+    expect(fsState.readFileMock).toHaveBeenCalledTimes(3);
   });
 });

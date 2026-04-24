@@ -19,11 +19,13 @@ export default async function WorkspaceCrmPage() {
             label="Due today"
             value={String(bundle.taskBuckets.dueToday.length)}
             detail="Tasks already ready for execution"
+            tone="accent"
           />
           <StatCard
             label="Overdue"
             value={String(bundle.taskBuckets.overdue.length)}
             detail="Past-due founder follow-ups"
+            tone="warning"
           />
           <StatCard
             label="Snoozed"
@@ -34,79 +36,86 @@ export default async function WorkspaceCrmPage() {
             label="Pending analysis"
             value={String(bundle.pendingSessions.length)}
             detail="Queued or failed transcript analyses"
+            tone="success"
           />
         </div>
       </Section>
 
-      <Section
-        eyebrow="Due Today"
-        title="Ready founder tasks"
-        description="Tasks already due today across active product lanes."
-      >
-        <ValidationTaskList
-          tasks={bundle.taskBuckets.dueToday}
-          leads={bundle.leads}
-          products={bundle.products}
-          emptyTitle="No tasks due today"
-          emptyDetail="Due founder tasks will appear here when work is ready."
-        />
-      </Section>
+      <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-8">
+          <Section
+            eyebrow="Due today"
+            title="Ready founder tasks"
+            description="Tasks already due today across active product lanes."
+          >
+            <ValidationTaskList
+              tasks={bundle.taskBuckets.dueToday}
+              leads={bundle.leads}
+              products={bundle.products}
+              emptyTitle="No tasks due today"
+              emptyDetail="Due founder tasks will appear here when work is ready."
+            />
+          </Section>
 
-      <Section
-        eyebrow="Overdue"
-        title="Past-due follow-ups"
-        description="Validation tasks that slipped past their intended due time."
-      >
-        <ValidationTaskList
-          tasks={bundle.taskBuckets.overdue}
-          leads={bundle.leads}
-          products={bundle.products}
-          emptyTitle="No overdue CRM tasks"
-          emptyDetail="Past-due founder work will appear here when follow-ups miss their target date."
-        />
-      </Section>
+          <Section
+            eyebrow="Overdue"
+            title="Past-due follow-ups"
+            description="Validation tasks that slipped past their intended due time."
+          >
+            <ValidationTaskList
+              tasks={bundle.taskBuckets.overdue}
+              leads={bundle.leads}
+              products={bundle.products}
+              emptyTitle="No overdue CRM tasks"
+              emptyDetail="Past-due founder work will appear here when follow-ups miss their target date."
+            />
+          </Section>
 
-      <Section
-        eyebrow="Snoozed"
-        title="Deferred follow-ups"
-        description="Tasks that were intentionally pushed out of the current founder queue."
-      >
-        <ValidationTaskList
-          tasks={bundle.taskBuckets.snoozed}
-          leads={bundle.leads}
-          products={bundle.products}
-          emptyTitle="No snoozed tasks"
-          emptyDetail="Snoozed tasks will reappear here until the next reminder sweep promotes them back to due."
-        />
-      </Section>
+          <Section
+            eyebrow="Snoozed"
+            title="Deferred follow-ups"
+            description="Tasks that were intentionally pushed out of the current founder queue."
+          >
+            <ValidationTaskList
+              tasks={bundle.taskBuckets.snoozed}
+              leads={bundle.leads}
+              products={bundle.products}
+              emptyTitle="No snoozed tasks"
+              emptyDetail="Snoozed tasks will reappear here until the next reminder sweep promotes them back to due."
+            />
+          </Section>
+        </div>
 
-      <Section
-        eyebrow="Pending Analysis"
-        title="Queued transcript work"
-        description="Validation sessions that still need analysis or a retry."
-      >
-        <ValidationSessionList
-          sessions={bundle.pendingSessions}
-          leads={bundle.leads}
-          products={bundle.products}
-          emptyTitle="No pending transcript analyses"
-          emptyDetail="Queued or failed transcript analyses will appear here until the next sweep processes them."
-        />
-      </Section>
+        <div className="space-y-8">
+          <Section
+            eyebrow="Pending analysis"
+            title="Queued transcript work"
+            description="Validation sessions that still need analysis or a retry."
+          >
+            <ValidationSessionList
+              sessions={bundle.pendingSessions}
+              leads={bundle.leads}
+              products={bundle.products}
+              emptyTitle="No pending transcript analyses"
+              emptyDetail="Queued or failed transcript analyses will appear here until the next sweep processes them."
+            />
+          </Section>
 
-      <Section
-        eyebrow="Transcripts"
-        title="Recent validation sessions"
-        description="Latest captured transcripts and extracted CRM intelligence across the workspace."
-      >
-        <ValidationSessionList
-          sessions={bundle.recentSessions}
-          leads={bundle.leads}
-          products={bundle.products}
-          emptyTitle="No validation sessions yet"
-          emptyDetail="Upload or paste transcripts inside a product validation lane to start building CRM intelligence."
-        />
-      </Section>
+          <Section
+            eyebrow="Transcripts"
+            title="Recent validation sessions"
+            description="Latest captured transcripts and extracted CRM intelligence across the workspace."
+          >
+            <ValidationSessionList
+              sessions={bundle.recentSessions}
+              leads={bundle.leads}
+              products={bundle.products}
+              emptyTitle="No validation sessions yet"
+              emptyDetail="Upload or paste transcripts inside a product validation lane to start building CRM intelligence."
+            />
+          </Section>
+        </div>
+      </div>
 
       <Section
         eyebrow="Patterns"
@@ -114,14 +123,14 @@ export default async function WorkspaceCrmPage() {
         description="The CRM aggregates repeated friction themes so founders can sharpen positioning and follow-up."
       >
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/55 p-5">
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Top objections</p>
+          <div className="glass-panel rounded-[1.55rem] p-5 shadow-lg shadow-black/10">
+            <p className="eyebrow text-slate-400">Top objections</p>
             <div className="mt-4 space-y-3">
               {bundle.topObjections.length > 0 ? (
                 bundle.topObjections.map((item) => (
                   <div
                     key={`objection-${item.label}`}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-200"
+                    className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-200"
                   >
                     {item.label} ({item.count})
                   </div>
@@ -131,14 +140,15 @@ export default async function WorkspaceCrmPage() {
               )}
             </div>
           </div>
-          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/55 p-5">
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Top pain points</p>
+
+          <div className="glass-panel rounded-[1.55rem] p-5 shadow-lg shadow-black/10">
+            <p className="eyebrow text-slate-400">Top pain points</p>
             <div className="mt-4 space-y-3">
               {bundle.topPainPoints.length > 0 ? (
                 bundle.topPainPoints.map((item) => (
                   <div
                     key={`pain-${item.label}`}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-200"
+                    className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-200"
                   >
                     {item.label} ({item.count})
                   </div>

@@ -2,8 +2,6 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PublicFunnelState } from "@/lib/server/funnel";
-
 const { getPublicFunnelStateMock, redirectMock } = vi.hoisted(() => ({
   getPublicFunnelStateMock: vi.fn(),
   redirectMock: vi.fn(),
@@ -29,114 +27,17 @@ vi.mock("@/lib/server/actions", () => ({
   startPlatformCheckoutAction: vi.fn(),
 }));
 
-vi.mock("@/lib/server/funnel", () => ({
-  getPublicFunnelState: getPublicFunnelStateMock,
-}));
-
-import PricingPage, { metadata as pricingMetadata } from "./page";
-
-const defaultPageProps = {
-  searchParams: Promise.resolve({}),
-};
-
-function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
+vi.mock("@/lib/server/funnel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/server/funnel")>();
   return {
-    activationDetail: "Activation follows the current operator-controlled invite or signup-intent flow.",
-    activationReady: false,
-    auth: {
-      firebaseEnabled: false,
-      firebaseTestMode: false,
-      inviteTokenEnabled: true,
-      firebaseClientConfigured: false,
-      firebaseAdminConfigured: false,
-      firebaseProjectId: null,
-      firebaseError: null,
-    },
-    availabilityMode: "signup_intent",
-    checkoutVisible: false,
-    flags: {
-      inviteOnlyBeta: true,
-      publicWaitlist: true,
-      publicSignupEnabled: true,
-      selfServeProvisioningEnabled: false,
-      checkoutEnabled: false,
-      platformBillingEnabled: true,
-      proAiEnabled: false,
-    },
-    founder: {
-      loggedIn: false,
-      subscriptionStatus: null,
-      hasActiveSubscription: false,
-      canStartCheckout: false,
-    },
-    journeyMode: "signup_intent",
-    metrics: {
-      productCount: 0,
-      waitlistCount: 0,
-      workspaceCount: 0,
-    },
-    plans: [
-      {
-        id: "growth",
-        name: "Growth",
-        hidden: false,
-        monthlyPrice: 99,
-        annualPrice: 990,
-        features: ["Single founder workspace"],
-      },
-    ],
-    pricingAction: {
-      href: "/pricing",
-      label: "See pricing",
-      kind: "pricing",
-    },
-    pricingVisible: true,
-    primaryAction: {
-      href: "/signup",
-      label: "Start signup",
-      kind: "signup",
-    },
-    readiness: {
-      environment: "development",
-      productionSafe: true,
-      publicPlans: [
-        {
-          id: "growth",
-          name: "Growth",
-          hidden: false,
-          monthlyPrice: 99,
-          annualPrice: 990,
-          features: ["Single founder workspace"],
-        },
-      ],
-      publicPlanIdsMissingCheckoutPrices: [],
-      pricingReady: true,
-      signupIntentReady: true,
-      firebaseReadyForSelfServe: false,
-      selfServeReady: false,
-      checkoutReady: false,
-      automationReady: false,
-      checks: [],
-      blockingIssues: [],
-    },
-    secondaryAction: {
-      href: "/login",
-      label: "Founder login",
-      kind: "login",
-    },
-    signupAvailable: true,
-    signupIntent: null,
-    summary: {
-      eyebrow: "Guided Signup",
-      title: "Capture founder demand now, provision deliberately later.",
-      detail:
-        "Public signup is collecting the founder, workspace, and plan choice without skipping operator review.",
-      tone: "cyan",
-    },
-    waitlistOpen: true,
-    ...overrides,
-  } satisfies PublicFunnelState;
-}
+    ...actual,
+    getPublicFunnelState: getPublicFunnelStateMock,
+  };
+});
+
+import { buildPublicFunnelStateForTests } from "@/test/public-funnel-state";
+
+import PricingPage, { generateMetadata as generatePricingMetadata } from "./page";
 
 describe("/pricing page", () => {
   beforeEach(() => {
@@ -149,82 +50,87 @@ describe("/pricing page", () => {
 
   it("redirects to home when pricing is hidden", async () => {
     getPublicFunnelStateMock.mockResolvedValue(
-      buildFunnelState({
-        checkoutVisible: false,
+      buildPublicFunnelStateForTests({
         plans: [],
         pricingVisible: false,
       }),
     );
 
-    await expect(PricingPage(defaultPageProps)).rejects.toThrow("REDIRECT:/");
+    await expect(PricingPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+      "REDIRECT:/",
+    );
   });
 
-  it("renders pricing content when pricing is visible", async () => {
-    getPublicFunnelStateMock.mockResolvedValue(buildFunnelState());
+  it("renders the pricing surface with workspace-aware billing guidance", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(buildPublicFunnelStateForTests());
 
-    const html = renderToStaticMarkup(await PricingPage(defaultPageProps));
+    const html = renderToStaticMarkup(
+      await PricingPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
 
-    expect(html).toContain("Choose the MicroSaaS Factory lane");
+    expect(html).toContain("Choose the Growth lane without losing sight of the workspace path.");
     expect(html).toContain("Growth");
-    expect(html).toContain("Start signup");
+    expect(html).toContain("Billing posture stays attached to launch readiness.");
+    expect(html).toContain("Commercial posture");
+    expect(html).toContain("What founders can do now versus what the launch target unlocks later.");
+    expect(html).toContain("Pricing questions that should be answered before checkout opens.");
+    expect(html).toContain("Compare the public plan and choose the lane that matches the founder workspace.");
     expect(html).not.toContain("Start monthly checkout");
   });
 
   it("renders checkout buttons for eligible founder workspaces", async () => {
     getPublicFunnelStateMock.mockResolvedValue(
-      buildFunnelState({
-        checkoutVisible: true,
-        flags: {
-          inviteOnlyBeta: true,
-          publicWaitlist: true,
-          publicSignupEnabled: true,
-          selfServeProvisioningEnabled: false,
-          checkoutEnabled: true,
-          platformBillingEnabled: true,
-          proAiEnabled: false,
+      buildPublicFunnelStateForTests(
+        {},
+        {
+          founder: {
+            workspaceId: "workspace-1",
+            workspaceName: "Factory Lab",
+            subscriptionStatus: "trial",
+          },
         },
-        founder: {
-          loggedIn: true,
-          workspaceId: "workspace-1",
-          workspaceName: "Factory Lab",
-          subscriptionStatus: "trial",
-          hasActiveSubscription: false,
-          canStartCheckout: true,
-        },
-        readiness: {
-          environment: "development",
-          productionSafe: true,
-          publicPlans: [
-            {
-              id: "growth",
-              name: "Growth",
-              hidden: false,
-              monthlyPrice: 99,
-              annualPrice: 990,
-              features: ["Single founder workspace"],
-            },
-          ],
-          publicPlanIdsMissingCheckoutPrices: [],
-          pricingReady: true,
-          signupIntentReady: true,
-          firebaseReadyForSelfServe: false,
-          selfServeReady: false,
-          checkoutReady: true,
-          automationReady: false,
-          checks: [],
-          blockingIssues: [],
-        },
-      }),
+      ),
     );
 
-    const html = renderToStaticMarkup(await PricingPage(defaultPageProps));
+    const html = renderToStaticMarkup(
+      await PricingPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
 
     expect(html).toContain("Start monthly checkout");
     expect(html).toContain("Start annual checkout");
   });
 
-  it("exports canonical pricing metadata", () => {
+  it("renders cancelled and error return-state messaging", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(buildPublicFunnelStateForTests());
+
+    const cancelledHtml = renderToStaticMarkup(
+      await PricingPage({
+        searchParams: Promise.resolve({ billing: "cancelled" }),
+      }),
+    );
+    const errorHtml = renderToStaticMarkup(
+      await PricingPage({
+        searchParams: Promise.resolve({
+          billing: "error",
+          reason: "Checkout could not be started from this pricing page.",
+        }),
+      }),
+    );
+
+    expect(cancelledHtml).toContain("Checkout was canceled before completion.");
+    expect(errorHtml).toContain("Checkout could not be started from this pricing page.");
+  });
+
+  it("exports canonical pricing metadata", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(buildPublicFunnelStateForTests());
+
+    const pricingMetadata = await generatePricingMetadata();
+
     expect(pricingMetadata.alternates?.canonical).toBe("/pricing");
-    expect(pricingMetadata.description).toContain("billing posture");
+    expect(pricingMetadata.description).toContain("workspace-aware billing");
   });
 });

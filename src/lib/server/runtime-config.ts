@@ -56,8 +56,16 @@ export type RuntimeHealthReadiness = Pick<
 export type RuntimeHealthSnapshot = {
   appUrl: string | null;
   generatedAt: string;
+  guidance: RuntimeGoLiveGuidance;
   ok: boolean;
   readiness: RuntimeHealthReadiness;
+};
+
+export type RuntimeGoLiveGuidance = {
+  externalVerification: string[];
+  nextStep: string;
+  repoControlledIssues: string[];
+  summary: string;
 };
 
 type StripePriceMapEntry = {
@@ -251,6 +259,56 @@ function buildCheck(
     status,
     detail,
     blocking,
+  };
+}
+
+function formatList(items: string[]) {
+  if (items.length <= 1) {
+    return items[0] ?? "";
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+const EXTERNAL_GO_LIVE_CHECKS = [
+  "Verify /api/healthz returns selfServeReady=true and checkoutReady=true after deploy.",
+  "Confirm http://microsaasfactory.io returns HTTP 301 to HTTPS before long HSTS.",
+  "Exercise live Stripe checkout successfully before leaving checkoutEnabled=true.",
+  "Confirm SPF, DKIM, DMARC, and CAA records for the active sender domain.",
+] as const;
+
+export function buildRuntimeGoLiveGuidance(
+  readiness: RuntimeReadiness,
+): RuntimeGoLiveGuidance {
+  const repoControlledIssues = readiness.checks
+    .filter((check) =>
+      ["pricing", "signup_intent", "self_serve", "checkout", "automation"].includes(check.id),
+    )
+    .filter((check) => check.status !== "ready")
+    .map((check) => `${check.label}: ${check.detail}`);
+
+  const unresolvedLabels = readiness.checks
+    .filter((check) =>
+      ["pricing", "signup_intent", "self_serve", "checkout", "automation"].includes(check.id),
+    )
+    .filter((check) => check.status !== "ready")
+    .map((check) => check.label.toLowerCase());
+
+  return {
+    repoControlledIssues,
+    externalVerification: [...EXTERNAL_GO_LIVE_CHECKS],
+    summary:
+      unresolvedLabels.length > 0
+        ? `Repo-controlled launch work still needs ${formatList(unresolvedLabels)}. External verification remains required after deploy.`
+        : "Repo-controlled launch checks are green. Only deployment verification, live checkout confirmation, and edge plus DNS validation remain.",
+    nextStep:
+      repoControlledIssues.length > 0
+        ? "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations."
+        : "Deploy the current build, verify /api/healthz, run live checkout, and complete edge plus DNS verification before leaving the full self-serve flags on.",
   };
 }
 
@@ -515,6 +573,7 @@ export async function getRuntimeHealthSnapshot(): Promise<RuntimeHealthSnapshot>
   return {
     appUrl: getMicrosaasFactoryAppUrl() || null,
     generatedAt: new Date().toISOString(),
+    guidance: buildRuntimeGoLiveGuidance(readiness),
     ok: readiness.productionSafe,
     readiness: {
       pricingReady: readiness.pricingReady,

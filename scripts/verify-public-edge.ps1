@@ -5,7 +5,14 @@ param(
   [switch]$ExpectCheckoutReady,
   [switch]$ExpectSelfServeReady,
   [switch]$ExpectLaunchReady,
-  [string[]]$DkimHosts = @()
+  [string[]]$SpfHosts = @(),
+  [string[]]$DkimHosts = @(),
+  [string]$ExpectedHomepageTitle = "",
+  [string]$ExpectedHomepageDescriptionContains = "",
+  [string]$ExpectedHomepageCanonical = "",
+  [string]$ExpectedManifestDescriptionContains = "",
+  [string[]]$ExpectedSitemapPaths = @(),
+  [string[]]$ExpectedHomepagePhrases = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,6 +50,68 @@ function Get-ResponseHeaders {
   }
 }
 
+function Get-ResponseBody {
+  param([string]$Url)
+
+  return (curl.exe -sL $Url | Out-String)
+}
+
+function Get-RegexGroupValue {
+  param(
+    [string]$Text,
+    [string]$Pattern
+  )
+
+  $match = [regex]::Match($Text, $Pattern)
+
+  if ($match.Success) {
+    return $match.Groups[1].Value.Trim()
+  }
+
+  return ""
+}
+
+function Get-HomepageMetaContent {
+  param(
+    [string]$Html,
+    [string]$Name
+  )
+
+  $pattern = '(?is)<meta[^>]+name=["'']' + [regex]::Escape($Name) + '["''][^>]+content=["'']([^"'']+)["'']'
+  return Get-RegexGroupValue -Text $Html -Pattern $pattern
+}
+
+function Get-ExpectedSitemapUrl {
+  param(
+    [string]$DomainName,
+    [string]$PathOrUrl
+  )
+
+  if ([string]::IsNullOrWhiteSpace($PathOrUrl)) {
+    return ""
+  }
+
+  if ($PathOrUrl.StartsWith("http://") -or $PathOrUrl.StartsWith("https://")) {
+    return $PathOrUrl.Trim()
+  }
+
+  if ($PathOrUrl.StartsWith("/")) {
+    return "https://$DomainName$PathOrUrl"
+  }
+
+  return "https://$DomainName/$PathOrUrl"
+}
+
+function Normalize-UrlValue {
+  param([string]$Value)
+
+  if ([string]::IsNullOrWhiteSpace($Value)) {
+    return ""
+  }
+
+  return $Value.Trim().TrimEnd("/")
+}
+
 function Assert-Condition {
   param(
     [string]$Label,
@@ -60,12 +129,103 @@ function Assert-Condition {
   Write-CheckResult -Label $Label -Passed $false -Detail $FailureDetail
 }
 
+function Get-DnsTextRecords {
+  param([string]$HostName)
+
+  try {
+    $records = Resolve-DnsName -Name $HostName -Type TXT -ErrorAction Stop |
+      Where-Object { $_.Strings } |
+      ForEach-Object { ($_.Strings -join "") }
+
+    if ($records.Count -gt 0) {
+      return $records
+    }
+  } catch {
+  }
+
+  $nslookupOutput = nslookup -type=txt $HostName 2>&1 | Out-String
+  $records = @()
+
+  foreach ($line in ($nslookupOutput -split "`r?`n")) {
+    if ($line -match 'text = "(.*)"') {
+      $records += $Matches[1]
+    }
+  }
+
+  return $records
+}
+
+function Get-DnsMxRecords {
+  param([string]$HostName)
+
+  try {
+    $records = Resolve-DnsName -Name $HostName -Type MX -ErrorAction Stop |
+      Where-Object { $_.NameExchange } |
+      ForEach-Object { $_.NameExchange.TrimEnd(".") }
+
+    if ($records.Count -gt 0) {
+      return $records
+    }
+  } catch {
+  }
+
+  $nslookupOutput = nslookup -type=mx $HostName 2>&1 | Out-String
+  $records = @()
+
+  foreach ($line in ($nslookupOutput -split "`r?`n")) {
+    if ($line -match "mail exchanger = (.+)$") {
+      $records += $Matches[1].Trim().TrimEnd(".")
+    }
+  }
+
+  return $records
+}
+
+function Get-DnsCaaRecords {
+  param([string]$HostName)
+
+  try {
+    $dnsGoogle = curl.exe -s "https://dns.google/resolve?name=$HostName&type=257" | ConvertFrom-Json
+    $records = @()
+    $answers = @()
+
+    if ($null -ne $dnsGoogle -and $null -ne $dnsGoogle.Answer) {
+      $answers = @($dnsGoogle.Answer)
+    }
+
+    foreach ($answer in $answers) {
+      if ($answer.data) {
+        $records += [string]$answer.data
+      }
+    }
+
+    if ($records.Count -gt 0) {
+      return $records
+    }
+  } catch {
+  }
+
+  $nslookupOutput = nslookup -type=CAA $HostName 2>&1 | Out-String
+  $records = @()
+
+  foreach ($line in ($nslookupOutput -split "`r?`n")) {
+    if ($line -match "CAA record = (.+)$") {
+      $records += $Matches[1].Trim()
+    }
+  }
+
+  return $records
+}
+
 $httpsRoot = "https://$Domain/"
 $httpRoot = "http://$Domain/"
 
 $httpsResponse = Get-ResponseHeaders -Url $httpsRoot
+$homeHtml = Get-ResponseBody -Url $httpsRoot
 $robotsResponse = Get-ResponseHeaders -Url "https://$Domain/robots.txt"
 $sitemapResponse = Get-ResponseHeaders -Url "https://$Domain/sitemap.xml"
+$sitemapBody = Get-ResponseBody -Url "https://$Domain/sitemap.xml"
+$manifestBody = Get-ResponseBody -Url "https://$Domain/manifest.webmanifest"
 $termsResponse = Get-ResponseHeaders -Url "https://$Domain/terms"
 $privacyResponse = Get-ResponseHeaders -Url "https://$Domain/privacy"
 $healthHeaders = Get-ResponseHeaders -Url "https://$Domain/api/healthz"
@@ -76,9 +236,26 @@ $hsts = $httpsResponse.Headers["strict-transport-security"]
 $location = $httpResponse.Headers["location"]
 $csp = $httpsResponse.Headers["content-security-policy"]
 $cspReportOnly = $httpsResponse.Headers["content-security-policy-report-only"]
+$homeTitle = Get-RegexGroupValue -Text $homeHtml -Pattern '(?is)<title>(.*?)</title>'
+$homeDescription = Get-HomepageMetaContent -Html $homeHtml -Name "description"
+$homeCanonical = Get-RegexGroupValue -Text $homeHtml -Pattern '(?is)<link[^>]+rel=["'']canonical["''][^>]+href=["'']([^"'']+)["'']'
+$manifestJson = $null
+$manifestDescription = ""
+$sitemapUrls = [regex]::Matches($sitemapBody, '(?is)<loc>(.*?)</loc>') | ForEach-Object {
+  $_.Groups[1].Value.Trim()
+}
 $expectPermanentRedirectNow = $ExpectPermanentRedirect -or $ExpectLaunchReady
 $expectCheckoutReadyNow = $ExpectCheckoutReady -or $ExpectLaunchReady
 $expectSelfServeReadyNow = $ExpectSelfServeReady -or $ExpectLaunchReady
+$senderHosts = if ($SpfHosts.Count -gt 0) { $SpfHosts } else { @($Domain, "send.$Domain") }
+
+try {
+  $manifestJson = $manifestBody | ConvertFrom-Json
+  $manifestDescription = [string]$manifestJson.description
+} catch {
+  $failures.Add("Manifest JSON: could not parse /manifest.webmanifest as JSON.")
+  Write-CheckResult -Label "Manifest JSON" -Passed $false -Detail $_.Exception.Message
+}
 
 Assert-Condition `
   -Label "HTTPS root HSTS" `
@@ -130,6 +307,99 @@ Assert-Condition `
   -SuccessDetail $healthBody `
   -FailureDetail "/api/healthz did not return HTTP 200. Body: $healthBody"
 
+Assert-Condition `
+  -Label "Homepage title tag" `
+  -Condition ([string]::IsNullOrWhiteSpace($homeTitle) -eq $false) `
+  -SuccessDetail $homeTitle `
+  -FailureDetail "Expected a non-empty <title> tag on $httpsRoot."
+
+Assert-Condition `
+  -Label "Homepage meta description" `
+  -Condition ([string]::IsNullOrWhiteSpace($homeDescription) -eq $false) `
+  -SuccessDetail $homeDescription `
+  -FailureDetail "Expected a non-empty homepage meta description on $httpsRoot."
+
+Assert-Condition `
+  -Label "Homepage canonical" `
+  -Condition ([string]::IsNullOrWhiteSpace($homeCanonical) -eq $false) `
+  -SuccessDetail $homeCanonical `
+  -FailureDetail "Expected a canonical link tag on $httpsRoot."
+
+if ($manifestJson) {
+  Assert-Condition `
+    -Label "Manifest description" `
+    -Condition ([string]::IsNullOrWhiteSpace($manifestDescription) -eq $false) `
+    -SuccessDetail $manifestDescription `
+    -FailureDetail "Expected a non-empty manifest description."
+}
+
+Assert-Condition `
+  -Label "Sitemap URL coverage" `
+  -Condition (@($sitemapUrls).Count -gt 0) `
+  -SuccessDetail ($sitemapUrls -join "; ") `
+  -FailureDetail "Expected sitemap.xml to contain one or more <loc> entries."
+
+if (-not [string]::IsNullOrWhiteSpace($ExpectedHomepageTitle)) {
+  Assert-Condition `
+    -Label "Homepage title parity" `
+    -Condition ($homeTitle -eq $ExpectedHomepageTitle) `
+    -SuccessDetail $homeTitle `
+    -FailureDetail "Expected homepage title '$ExpectedHomepageTitle' but found '$homeTitle'."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ExpectedHomepageDescriptionContains)) {
+  Assert-Condition `
+    -Label "Homepage description parity" `
+    -Condition ($homeDescription -like "*$ExpectedHomepageDescriptionContains*") `
+    -SuccessDetail $homeDescription `
+    -FailureDetail "Expected homepage description to contain '$ExpectedHomepageDescriptionContains' but found '$homeDescription'."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ExpectedHomepageCanonical)) {
+  $normalizedActualCanonical = Normalize-UrlValue -Value $homeCanonical
+  $normalizedExpectedCanonical = Normalize-UrlValue -Value $ExpectedHomepageCanonical
+
+  Assert-Condition `
+    -Label "Homepage canonical parity" `
+    -Condition ($normalizedActualCanonical -eq $normalizedExpectedCanonical) `
+    -SuccessDetail $homeCanonical `
+    -FailureDetail "Expected canonical '$ExpectedHomepageCanonical' but found '$homeCanonical'."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ExpectedManifestDescriptionContains)) {
+  Assert-Condition `
+    -Label "Manifest description parity" `
+    -Condition ($manifestDescription -like "*$ExpectedManifestDescriptionContains*") `
+    -SuccessDetail $manifestDescription `
+    -FailureDetail "Expected manifest description to contain '$ExpectedManifestDescriptionContains' but found '$manifestDescription'."
+}
+
+foreach ($expectedPath in $ExpectedSitemapPaths) {
+  $expectedUrl = Get-ExpectedSitemapUrl -DomainName $Domain -PathOrUrl $expectedPath
+
+  if ([string]::IsNullOrWhiteSpace($expectedUrl)) {
+    continue
+  }
+
+  Assert-Condition `
+    -Label "Sitemap contains $expectedUrl" `
+    -Condition ($sitemapUrls -contains $expectedUrl) `
+    -SuccessDetail $expectedUrl `
+    -FailureDetail "Expected sitemap.xml to contain '$expectedUrl'."
+}
+
+foreach ($expectedPhrase in $ExpectedHomepagePhrases) {
+  if ([string]::IsNullOrWhiteSpace($expectedPhrase)) {
+    continue
+  }
+
+  Assert-Condition `
+    -Label "Homepage phrase '$expectedPhrase'" `
+    -Condition ($homeHtml -like "*$expectedPhrase*") `
+    -SuccessDetail "Homepage includes expected posture phrase." `
+    -FailureDetail "Expected homepage HTML to contain '$expectedPhrase'."
+}
+
 $healthJson = $null
 
 try {
@@ -167,32 +437,59 @@ Assert-Condition `
   -FailureDetail "Expected an HTTP $redirectExpectation redirect to $httpsRoot. Raw response: $($httpResponse.Raw.Trim())"
 
 try {
-  $txtRecords = nslookup -type=txt $Domain 2>&1 | Out-String
-  Write-CheckResult -Label "TXT records" -Passed $true -Detail $txtRecords.Trim()
+  $txtDetails = foreach ($dnsHost in $senderHosts) {
+    $records = Get-DnsTextRecords -HostName $dnsHost
+    if ($records.Count -gt 0) {
+      "$dnsHost => $($records -join '; ')"
+    } else {
+      "$dnsHost => <no TXT records>"
+    }
+  }
+
+  Write-CheckResult -Label "TXT records" -Passed $true -Detail ($txtDetails -join "`n")
+
+  $spfRecords = foreach ($dnsHost in $senderHosts) {
+    foreach ($record in (Get-DnsTextRecords -HostName $dnsHost)) {
+      if ($record -match "v=spf1") {
+        [pscustomobject]@{
+          HostName = $dnsHost
+          Record = $record
+        }
+      }
+    }
+  }
+
   Assert-Condition `
     -Label "SPF" `
-    -Condition ($txtRecords -match "v=spf1") `
-    -SuccessDetail "SPF record present." `
-    -FailureDetail "Expected a TXT SPF record containing v=spf1."
+    -Condition (@($spfRecords).Count -gt 0) `
+    -SuccessDetail ("SPF record present at " + ($spfRecords | ForEach-Object { "$($_.HostName): $($_.Record)" } | Select-Object -First 1)) `
+    -FailureDetail ("Expected a TXT SPF record containing v=spf1 at one of: {0}." -f ($senderHosts -join ", "))
 } catch {
-  $failures.Add("TXT records: lookup failed for $Domain.")
+  $failures.Add("TXT records: lookup failed for sender hosts.")
   Write-CheckResult -Label "TXT records" -Passed $false -Detail $_.Exception.Message
 }
 
 try {
-  $mxRecords = nslookup -type=mx $Domain 2>&1 | Out-String
-  Write-CheckResult -Label "MX records" -Passed $true -Detail $mxRecords.Trim()
+  $mxDetails = foreach ($dnsHost in $senderHosts) {
+    $records = Get-DnsMxRecords -HostName $dnsHost
+    if ($records.Count -gt 0) {
+      "$dnsHost => $($records -join '; ')"
+    } else {
+      "$dnsHost => <no MX records>"
+    }
+  }
+  Write-CheckResult -Label "MX records" -Passed $true -Detail ($mxDetails -join "`n")
 } catch {
-  $failures.Add("MX records: lookup failed for $Domain.")
+  $failures.Add("MX records: lookup failed for sender hosts.")
   Write-CheckResult -Label "MX records" -Passed $false -Detail $_.Exception.Message
 }
 
 try {
-  $dmarcRecords = nslookup -type=txt "_dmarc.$Domain" 2>&1 | Out-String
+  $dmarcRecords = Get-DnsTextRecords -HostName "_dmarc.$Domain"
   Assert-Condition `
     -Label "DMARC" `
-    -Condition ($dmarcRecords -match "p=quarantine" -or $dmarcRecords -match "p=reject") `
-    -SuccessDetail $dmarcRecords.Trim() `
+    -Condition (($dmarcRecords -join " ") -match "p=quarantine" -or ($dmarcRecords -join " ") -match "p=reject") `
+    -SuccessDetail ($dmarcRecords -join "; ") `
     -FailureDetail "Expected a DMARC TXT record with p=quarantine or p=reject."
 } catch {
   $failures.Add("DMARC: lookup failed for _dmarc.$Domain.")
@@ -219,11 +516,11 @@ foreach ($dkimHost in $DkimHosts) {
 }
 
 try {
-  $caaRecords = nslookup -type=CAA $Domain 2>&1 | Out-String
+  $caaRecords = Get-DnsCaaRecords -HostName $Domain
   Assert-Condition `
     -Label "CAA" `
-    -Condition ($caaRecords -notmatch "Non-existent domain" -and $caaRecords -match $Domain) `
-    -SuccessDetail $caaRecords.Trim() `
+    -Condition ($caaRecords.Count -gt 0) `
+    -SuccessDetail ($caaRecords -join "; ") `
     -FailureDetail "CAA records were not found for $Domain."
 } catch {
   $failures.Add("CAA: lookup failed for $Domain.")

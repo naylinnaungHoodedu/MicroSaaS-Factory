@@ -95,7 +95,7 @@ describe("public server actions", () => {
       status: "success",
       mode: "signup_intent",
       message:
-        "Your signup intent has been recorded. Workspace activation still stays behind operator review until self-serve provisioning is enabled.",
+        "Your signup intent has been recorded. Workspace activation still stays behind reviewed access until self-serve provisioning is enabled.",
       signupIntent: {
         id: "intent-1",
         founderName: "Founder Name",

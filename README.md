@@ -6,7 +6,7 @@
 [![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-orange?logo=firebase)](https://firebase.google.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-141%20unit%20%2B%2010%20e2e-brightgreen)](.)
+[![Tests](https://img.shields.io/badge/Tests-161%20unit%20%2B%2014%20e2e-brightgreen)](.)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
@@ -27,6 +27,13 @@ MicroSaaS Factory is a full-stack web platform designed for solo SaaS founders w
 | **Launch** | 7-check launch gate, onboarding email sequences, MRR/churn/P1 tracking, "Ready for Next Product" signal |
 
 ### Platform Features
+
+Current launch emphasis:
+
+- One public Growth lane keeps pricing, signup, activation, and founder re-entry on one route contract.
+- Firebase becomes the primary fast path when it is enabled, while invite-token recovery remains supported.
+- Stripe Checkout is treated as workspace-aware billing, not a detached marketing checkout.
+- `/api/healthz` now exposes minimal public-safe readiness plus shared go-live guidance.
 
 - **Invite-Only Beta** — Admin-issued invite tokens with workspace provisioning
 - **Staged Commercialization Funnel** — Public pricing plus operator-reviewed signup intent by default, with self-serve kept behind a separate activation flag
@@ -101,7 +108,7 @@ MicroSaaS Factory is a full-stack web platform designed for solo SaaS founders w
 
 ```bash
 # 1. Install dependencies
-npm install
+npm ci
 
 # 2. Configure environment
 cp .env.example .env.local
@@ -149,8 +156,8 @@ The app starts at `http://localhost:3000` with the local JSON backend writing to
 | `STRIPE_PLATFORM_SECRET_KEY` | Platform Stripe Checkout session creation |
 | `STRIPE_PLATFORM_WEBHOOK_SECRET` | Stripe platform webhook verification |
 | `STRIPE_PLATFORM_PRICE_MAP_JSON` | Public plan -> Stripe price ID mapping |
-| `GCP_SERVICE_ACCOUNT_JSON` | GCP Cloud Run/Build integration |
-| `VERTEX_AI_*` | AI generation features |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | GCP Cloud Run/Build integration |
+| `VERTEX_PROJECT_ID` / `VERTEX_LOCATION` / `VERTEX_SERVICE_ACCOUNT_JSON(_BASE64)` | AI generation features |
 
 See [`.env.example`](.env.example) for the complete variable reference.
 
@@ -170,7 +177,9 @@ npm run test:e2e
 npm run test:all
 ```
 
-**Current status**: 141/141 Vitest tests passing and 10/10 Playwright scenarios passing.
+**Current status**: 161/161 Vitest tests passing and 14/14 Playwright scenarios passing.
+
+Cloud Build now treats Playwright browser regression as a pre-deploy gate before the image build and Cloud Run deploy steps.
 
 The Playwright harness runs against the standalone production build and uses an isolated database file via `MICROSAAS_FACTORY_LOCAL_DB_FILE`, so it does not mutate default development state.
 
@@ -188,19 +197,28 @@ docker build -t microsaas-factory .
 gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE_TAG=deploy-YYYYMMDD-1
 ```
 
+The Dockerfile pins the Node 20 base image by digest for deterministic rebuild posture, but this repository still does **not** claim regulated-release readiness while SBOM, traceability, and formal CR workflow gaps remain open.
+
 ### Pre-Deployment Checklist
 
 Additional production rollout items:
 
 - Set `MICROSAAS_FACTORY_APP_URL` to the production hostname.
 - Set `FIRESTORE_PROJECT_ID` explicitly in production, even when the Cloud Run project is already known through ADC.
-- For staged signup intent, keep at least one visible public plan live. The repo now seeds `growth` at `99` monthly / `990` annual when no visible public plan exists.
-- For self-serve signup readiness, provide the full Firebase client suite plus `FIREBASE_SERVICE_ACCOUNT_*`, but keep `selfServeProvisioningEnabled=false` until the activation lane has been verified.
+- The final full-launch target posture is:
+  - `platformBillingEnabled=true`
+  - `publicSignupEnabled=true`
+  - `selfServeProvisioningEnabled=true`
+  - `checkoutEnabled=true`
+- Keep at least one visible public plan live. The repo now seeds `growth` at `99` monthly / `990` annual when no visible public plan exists.
+- For self-serve signup readiness, provide the full Firebase client suite plus `FIREBASE_SERVICE_ACCOUNT_*`, and do not keep `selfServeProvisioningEnabled=true` until `/api/healthz` reports `selfServeReady=true`.
 - For platform billing, provide `STRIPE_PLATFORM_SECRET_KEY`, `STRIPE_PLATFORM_WEBHOOK_SECRET`, and `STRIPE_PLATFORM_PRICE_MAP_JSON`.
-- Leave `checkoutEnabled=false` until Stripe checkout has been exercised manually against the live environment.
+- Do not keep `checkoutEnabled=true` until `/api/healthz` reports `checkoutReady=true` and Stripe checkout has been exercised manually against the live environment.
+- Review `/api/healthz.guidance.summary` and `guidance.repoControlledIssues` before treating the repo/runtime portion of launch as complete.
 - Move runtime secrets to Secret Manager-backed Cloud Run refs instead of plain env vars.
 - Confirm the public edge: permanent HTTP -> HTTPS redirect, `/robots.txt`, `/sitemap.xml`, and `/api/healthz` should all pass before enabling long HSTS.
 - Run the scheduler, monitoring, and public-edge verification scripts in `scripts/` after deployment.
+- Publish SPF, DMARC, DKIM, and CAA records before calling the public self-serve plus checkout launch complete.
 
 1. ✅ Create an Artifact Registry repository for the container image
 2. ✅ Set `MICROSAAS_FACTORY_DB_BACKEND=firestore` with valid Firestore credentials
@@ -268,6 +286,10 @@ And it supports Secret Manager refs for:
 - `readiness.signupIntentReady` tracks whether operator-reviewed signup can be exposed.
 - `readiness.checkoutReady` tracks whether Stripe checkout is fully configured.
 - `readiness.selfServeReady` tracks whether Firebase-backed self-serve activation is ready.
+- `guidance.summary` gives the shared repo/runtime go-live summary used by public, founder, and operator surfaces.
+- `guidance.nextStep` gives the next rollout move after the current build is deployed.
+- `guidance.repoControlledIssues` lists remaining Firebase, Stripe, pricing, signup, or automation issues still visible from checked-in/runtime truth.
+- `guidance.externalVerification` lists the live-edge and DNS checks that still require human rollout verification.
 
 Detailed auth, storage, and readiness diagnostics remain server-side in the admin console.
 
@@ -281,13 +303,13 @@ The platform behavior is controlled by global feature flags managed via the admi
 |------|---------|-------------|
 | `inviteOnlyBeta` | `true` | Require admin-issued invite tokens |
 | `publicWaitlist` | `true` | Show waitlist request form |
-| `publicSignupEnabled` | `true` | Allow public operator-reviewed signup intent |
+| `publicSignupEnabled` | `true` | Allow public signup or staged workspace creation from visible plans |
 | `selfServeProvisioningEnabled` | `false` | Auto-provision workspaces on signup once Firebase readiness is green |
 | `checkoutEnabled` | `false` | Enable Stripe checkout flows |
 | `platformBillingEnabled` | `true` | Show pricing plans publicly |
 | `proAiEnabled` | `false` | Enable Gemini Pro model (vs Flash only) |
 
-Production guardrails now reject unsafe flag transitions. Public pricing and signup intent require at least one visible public plan, self-serve provisioning requires Firebase readiness, and Checkout requires platform billing visibility plus Stripe Checkout readiness.
+Production guardrails now reject unsafe flag transitions. Public pricing and signup require at least one visible public plan, self-serve provisioning requires Firebase readiness, and Checkout requires platform billing visibility plus Stripe Checkout readiness.
 
 ---
 

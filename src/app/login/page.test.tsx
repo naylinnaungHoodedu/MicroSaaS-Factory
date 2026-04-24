@@ -2,8 +2,6 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PublicFunnelState } from "@/lib/server/funnel";
-
 const { getPublicFunnelStateMock } = vi.hoisted(() => ({
   getPublicFunnelStateMock: vi.fn(),
 }));
@@ -28,118 +26,25 @@ vi.mock("@/components/firebase-login-panel", () => ({
   FirebaseLoginPanel: () => <div>Firebase Panel</div>,
 }));
 
-vi.mock("@/lib/server/funnel", () => ({
-  getPublicFunnelState: getPublicFunnelStateMock,
-}));
-
-import LoginPage, { metadata as loginMetadata } from "./page";
-
-function buildFunnelState(overrides: Partial<PublicFunnelState> = {}) {
+vi.mock("@/lib/server/funnel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/server/funnel")>();
   return {
-    activationDetail: "Activation follows the current operator-controlled invite or signup-intent flow.",
-    activationReady: false,
-    auth: {
-      firebaseEnabled: false,
-      firebaseTestMode: false,
-      inviteTokenEnabled: true,
-      firebaseClientConfigured: false,
-      firebaseAdminConfigured: false,
-      firebaseProjectId: null,
-      firebaseError: null,
-    },
-    availabilityMode: "signup_intent",
-    checkoutVisible: false,
-    flags: {
-      inviteOnlyBeta: true,
-      publicWaitlist: true,
-      publicSignupEnabled: true,
-      selfServeProvisioningEnabled: false,
-      checkoutEnabled: false,
-      platformBillingEnabled: true,
-      proAiEnabled: false,
-    },
-    founder: {
-      loggedIn: false,
-      subscriptionStatus: null,
-      hasActiveSubscription: false,
-      canStartCheckout: false,
-    },
-    journeyMode: "signup_intent",
-    metrics: {
-      productCount: 0,
-      waitlistCount: 0,
-      workspaceCount: 0,
-    },
-    plans: [
-      {
-        id: "growth",
-        name: "Growth",
-        hidden: false,
-        monthlyPrice: 99,
-        annualPrice: 990,
-        features: ["Single founder workspace"],
-      },
-    ],
-    pricingAction: {
-      href: "/pricing",
-      label: "See pricing",
-      kind: "pricing",
-    },
-    pricingVisible: true,
-    primaryAction: {
-      href: "/signup",
-      label: "Start signup",
-      kind: "signup",
-    },
-    readiness: {
-      environment: "development",
-      productionSafe: true,
-      publicPlans: [
-        {
-          id: "growth",
-          name: "Growth",
-          hidden: false,
-          monthlyPrice: 99,
-          annualPrice: 990,
-          features: ["Single founder workspace"],
-        },
-      ],
-      publicPlanIdsMissingCheckoutPrices: [],
-      pricingReady: true,
-      signupIntentReady: true,
-      firebaseReadyForSelfServe: false,
-      selfServeReady: false,
-      checkoutReady: false,
-      automationReady: false,
-      checks: [],
-      blockingIssues: [],
-    },
-    secondaryAction: {
-      href: "/login",
-      label: "Founder login",
-      kind: "login",
-    },
-    signupAvailable: true,
-    signupIntent: null,
-    summary: {
-      eyebrow: "Guided Signup",
-      title: "Capture founder demand now, provision deliberately later.",
-      detail:
-        "Public signup is collecting the founder, workspace, and plan choice without skipping operator review.",
-      tone: "cyan",
-    },
-    waitlistOpen: true,
-    ...overrides,
-  } satisfies PublicFunnelState;
-}
+    ...actual,
+    getPublicFunnelState: getPublicFunnelStateMock,
+  };
+});
+
+import { buildPublicFunnelStateForTests } from "@/test/public-funnel-state";
+
+import LoginPage, { generateMetadata as generateLoginMetadata } from "./page";
 
 describe("/login page", () => {
   beforeEach(() => {
     getPublicFunnelStateMock.mockReset();
   });
 
-  it("renders login copy from the unified funnel state", async () => {
-    getPublicFunnelStateMock.mockResolvedValue(buildFunnelState());
+  it("renders Firebase re-entry plus invite-token fallback", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(buildPublicFunnelStateForTests());
 
     const html = renderToStaticMarkup(
       await LoginPage({
@@ -147,17 +52,61 @@ describe("/login page", () => {
       }),
     );
 
-    expect(html).toContain("Sign in with your beta invite.");
-    expect(html).toContain("Public signup is open for operator review");
-    expect(html).not.toContain("Firebase Panel");
+    expect(html).toContain("Return to your founder workspace.");
+    expect(html).toContain("Recovery posture stays visible, not buried.");
+    expect(html).toContain("Firebase Panel");
     expect(html).toContain('autoComplete="email"');
     expect(html).toContain('autoComplete="off"');
+    expect(html).toContain("Recovery model");
+    expect(html).toContain("Founder recovery should feel coherent across the whole public surface.");
     expect(html).toContain("Terms");
     expect(html).toContain("Privacy");
   });
 
-  it("exports canonical login metadata", () => {
+  it("renders the invite-led fallback message when Firebase is unavailable", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(
+      buildPublicFunnelStateForTests(
+        {},
+        {
+          auth: {
+            firebaseEnabled: false,
+            firebaseTestMode: false,
+            inviteTokenEnabled: true,
+            firebaseClientConfigured: false,
+            firebaseAdminConfigured: false,
+            firebaseProjectId: null,
+            firebaseError: null,
+          },
+          flags: {
+            inviteOnlyBeta: true,
+            publicWaitlist: true,
+            publicSignupEnabled: true,
+            selfServeProvisioningEnabled: false,
+            checkoutEnabled: false,
+            platformBillingEnabled: true,
+            proAiEnabled: false,
+          },
+        },
+      ),
+    );
+
+    const html = renderToStaticMarkup(
+      await LoginPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(html).toContain("Sign in with your invite.");
+    expect(html).not.toContain("Firebase Panel");
+    expect(html).toContain("invite-token access remains the supported founder return path");
+  });
+
+  it("exports canonical login metadata", async () => {
+    getPublicFunnelStateMock.mockResolvedValue(buildPublicFunnelStateForTests());
+
+    const loginMetadata = await generateLoginMetadata();
+
     expect(loginMetadata.alternates?.canonical).toBe("/login");
-    expect(loginMetadata.description).toContain("founder workspace");
+    expect(loginMetadata.description).toContain("fastest available sign-in path");
   });
 });

@@ -12,7 +12,11 @@ test("admin invite creation and founder onboarding flow succeeds", async ({ page
   await page.getByLabel("Admin secret").fill("microsaas-admin");
   await page.getByRole("button", { name: "Enter admin console" }).click();
 
-  await expect(page.getByRole("heading", { name: "Issue invites and control beta exposure." })).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Run the self-serve launch from one control room.",
+    }),
+  ).toBeVisible();
 
   await page.getByLabel("Founder email").fill(founderEmail);
   await page.getByLabel("Workspace name").fill(workspaceName);
@@ -28,7 +32,7 @@ test("admin invite creation and founder onboarding flow succeeds", async ({ page
 
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.getByRole("heading", { name: "Founder control tower" })).toBeVisible();
-  await expect(page.getByText(workspaceName)).toBeVisible();
+  await expect(page.getByRole("heading", { name: workspaceName, exact: true })).toBeVisible();
 
   await page.getByLabel("Template").selectOption("oee-dashboard");
   await expect(

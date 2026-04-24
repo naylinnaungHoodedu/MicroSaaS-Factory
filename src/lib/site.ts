@@ -1,6 +1,6 @@
 export const SITE_NAME = "MicroSaaS Factory";
 export const SITE_DESCRIPTION =
-  "Invite-beta founder operating system for research, validation, launch gating, and connected ops.";
+  "Founder operating system for solo technical founders with public pricing, guided signup, launch control, and one workspace from first signal to revenue.";
 export const SITE_OG_IMAGE_PATH = "/og.png";
 export const SITE_THEME_COLOR = "#07111f";
 

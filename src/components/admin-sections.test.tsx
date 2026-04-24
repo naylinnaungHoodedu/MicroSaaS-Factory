@@ -18,7 +18,7 @@ vi.mock("next/link", () => ({
 }));
 
 describe("AdminConsoleSection", () => {
-  it("renders the staged commercialization readiness chips", () => {
+  it("renders the full launch target, blockers, and sequencing guidance", () => {
     const html = renderToStaticMarkup(
       <AdminConsoleSection
         overview={{
@@ -55,28 +55,21 @@ describe("AdminConsoleSection", () => {
                 id: "signup_intent",
                 label: "Signup intent",
                 status: "ready",
-                detail: "Operator-reviewed signup intent can be exposed.",
+                detail: "Public signup is available from the current plan catalog.",
                 blocking: true,
               },
               {
                 id: "self_serve",
                 label: "Self-serve activation",
                 status: "warning",
-                detail: "Firebase client and admin configuration are incomplete.",
+                detail: "Firebase client and admin readiness still block self-serve activation.",
                 blocking: false,
               },
               {
                 id: "checkout",
                 label: "Stripe checkout",
                 status: "warning",
-                detail: "Missing STRIPE_PLATFORM_SECRET_KEY.",
-                blocking: false,
-              },
-              {
-                id: "automation",
-                label: "Automation scheduling",
-                status: "ready",
-                detail: "The app URL and internal automation key are both present.",
+                detail: "Stripe checkout still has unresolved runtime blockers.",
                 blocking: false,
               },
             ],
@@ -126,22 +119,91 @@ describe("AdminConsoleSection", () => {
         viewModel={{
           funnel: {
             summary: {
-              eyebrow: "Guided Signup",
-              title: "Capture founder demand now, provision deliberately later.",
-              detail:
-                "Public signup is collecting the founder, workspace, and plan choice without skipping operator review.",
-              tone: "cyan",
+              eyebrow: "Self-Serve Staged",
+              title: "Start the workspace now and complete activation when this environment is ready.",
+              detail: "Activation follows the live environment readiness for this deployment.",
+              tone: "amber",
             },
             availabilityMode: "signup_intent",
             pricingVisible: true,
             checkoutVisible: false,
+          },
+          guidedLaunchTarget: {
+            summary:
+              "Target the full public launch posture: pricing on, signup on, self-serve on, and checkout on once runtime and edge verification are both green.",
+            description:
+              "This launch wave is not targeting a half-open funnel. The operator surface should make it explicit that full self-serve plus checkout is the intended steady state after Firebase, Stripe, redirect, and DNS work are complete.",
+            flags: [
+              {
+                flag: "platformBillingEnabled",
+                label: "platformBillingEnabled",
+                target: true,
+                actual: true,
+              },
+              {
+                flag: "publicSignupEnabled",
+                label: "publicSignupEnabled",
+                target: true,
+                actual: true,
+              },
+              {
+                flag: "selfServeProvisioningEnabled",
+                label: "selfServeProvisioningEnabled",
+                target: true,
+                actual: false,
+              },
+              {
+                flag: "checkoutEnabled",
+                label: "checkoutEnabled",
+                target: true,
+                actual: false,
+              },
+            ],
+            blockers: [
+              {
+                id: "firebase",
+                label: "Self-serve activation",
+                status: "attention",
+                detail: "Firebase client and admin readiness still block self-serve activation.",
+              },
+              {
+                id: "stripe",
+                label: "Checkout",
+                status: "attention",
+                detail: "Stripe checkout still has unresolved runtime blockers.",
+              },
+              {
+                id: "redirect",
+                label: "Permanent HTTPS redirect",
+                status: "manual",
+                detail: "Confirm the public edge returns HTTP 301 before long HSTS.",
+              },
+              {
+                id: "email-auth",
+                label: "SPF + DKIM + DMARC + CAA",
+                status: "manual",
+                detail: "Confirm DNS email-auth and certificate-authority records.",
+              },
+            ],
+          },
+          launchGuidance: {
+            summary:
+              "Repo-controlled launch work still needs self-serve activation and stripe checkout. External verification remains required after deploy.",
+            nextStep:
+              "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations.",
+            repoControlledIssues: [
+              "Self-serve activation: Firebase client and admin readiness still block self-serve activation.",
+            ],
+            externalVerification: [
+              "Confirm http://microsaasfactory.io returns HTTP 301 to HTTPS before long HSTS.",
+            ],
           },
           goLiveChecklist: [
             {
               id: "firebase",
               label: "Firebase client + admin",
               status: "attention",
-              detail: "Firebase client and admin credentials both need to be configured.",
+              detail: "Firebase client and admin readiness still block self-serve activation.",
             },
             {
               id: "legal",
@@ -157,18 +219,52 @@ describe("AdminConsoleSection", () => {
               detail: "Confirm the public edge returns HTTP 301 before long HSTS.",
             },
           ],
+          repoControlledChecklist: [
+            {
+              id: "firebase",
+              label: "Firebase client + admin",
+              status: "attention",
+              detail: "Firebase client and admin readiness still block self-serve activation.",
+            },
+            {
+              id: "legal",
+              label: "Terms + privacy routes",
+              status: "ready",
+              detail: "Launch-baseline legal pages are shipped in the public surface.",
+              href: "/terms",
+            },
+          ],
+          externalLaunchChecklist: [
+            {
+              id: "redirect",
+              label: "Permanent HTTPS redirect",
+              status: "manual",
+              detail: "Confirm the public edge returns HTTP 301 before long HSTS.",
+            },
+            {
+              id: "email-auth",
+              label: "SPF + DKIM + DMARC + CAA",
+              status: "manual",
+              detail: "Confirm DNS email-auth and certificate-authority records.",
+            },
+          ],
           latestRuns: [],
           plansById: new Map(),
         } as never}
       />,
     );
 
-    expect(html).toContain("pricing ready");
-    expect(html).toContain("signup intent ready");
-    expect(html).toContain("checkout prep not ready");
-    expect(html).toContain("self-serve not ready");
-    expect(html).toContain("Go-live checklist");
-    expect(html).toContain("Terms + privacy routes");
-    expect(html).toContain("Permanent HTTPS redirect");
+    expect(html).toContain("Full launch target");
+    expect(html).toContain("selfServeProvisioningEnabled");
+    expect(html).toContain("checkoutEnabled");
+    expect(html).toContain("Founder-facing narrative");
+    expect(html).toContain(
+      "Start the workspace now and complete activation when this environment is ready.",
+    );
+    expect(html).toContain("Launch sequencing");
+    expect(html).toContain("Public signup");
+    expect(html).toContain("pwsh ./scripts/verify-public-edge.ps1 -Domain microsaasfactory.io");
+    expect(html).toContain("Repo-controlled launch work");
+    expect(html).toContain("External launch verification");
   });
 });

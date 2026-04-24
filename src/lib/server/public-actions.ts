@@ -152,7 +152,7 @@ export async function createSignupIntentAction(
       message:
         mode === "self_serve"
           ? `Signup details saved for ${signupIntent.workspaceName}. Continue with Firebase to activate the workspace.`
-          : "Your signup intent has been recorded. Workspace activation still stays behind operator review until self-serve provisioning is enabled.",
+          : "Your signup intent has been recorded. Workspace activation still stays behind reviewed access until self-serve provisioning is enabled.",
     };
   } catch (error) {
     const message =

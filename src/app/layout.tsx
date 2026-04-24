@@ -65,21 +65,6 @@ export const viewport: Viewport = {
   themeColor: SITE_THEME_COLOR,
 };
 
-const softwareApplicationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: SITE_NAME,
-  applicationCategory: "BusinessApplication",
-  operatingSystem: "Web",
-  description: SITE_DESCRIPTION,
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-    availability: "https://schema.org/LimitedAvailability",
-  },
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -91,12 +76,6 @@ export default function RootLayout({
       className={`${headingFont.variable} ${monoFont.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(softwareApplicationJsonLd),
-          }}
-        />
         {children}
       </body>
     </html>

@@ -268,9 +268,23 @@ async function ensureDataFile(dataFile: string) {
 async function readLocalDatabase() {
   const dataFile = getLocalDataFile();
   await ensureDataFile(dataFile);
-  const raw = await readFile(dataFile, "utf8");
-  const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
-  return hydrateDatabase(parsed);
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const raw = await readFile(dataFile, "utf8");
+
+    try {
+      const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
+      return hydrateDatabase(parsed);
+    } catch (error) {
+      if (!(error instanceof SyntaxError) || attempt === 2) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 10 * (attempt + 1)));
+    }
+  }
+
+  return hydrateDatabase();
 }
 
 function isRetryableLocalReplaceError(error: unknown) {

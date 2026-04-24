@@ -6,21 +6,60 @@ substitutions:
   _IMAGE_TAG: latest
 
 steps:
-  - name: node:20-bookworm-slim
+  - id: Install
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
     entrypoint: npm
     args: ["ci"]
 
-  - name: node:20-bookworm-slim
+  - id: Lint
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
     entrypoint: npm
     args: ["run", "lint"]
 
-  - name: node:20-bookworm-slim
+  - id: Unit
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
     entrypoint: npm
     args: ["test"]
 
-  - name: node:20-bookworm-slim
+  - id: Build
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
     entrypoint: npm
     args: ["run", "build"]
+
+  - id: Playwright E2E
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        export CI=1
+        npx playwright install --with-deps chromium
+        export ADMIN_ACCESS_KEY=microsaas-admin
+        export MICROSAAS_FACTORY_ALLOW_UNSAFE_RUNTIME_FOR_TESTS=1
+        export MICROSAAS_FACTORY_FAKE_FIREBASE=1
+        export MICROSAAS_FACTORY_DB_BACKEND=local
+        export MICROSAAS_FACTORY_LOCAL_DB_FILE=/tmp/microsaas-factory-e2e/db.json
+        export MICROSAAS_FACTORY_ENCRYPTION_KEY=microsaas-factory-e2e
+        export MICROSAAS_FACTORY_APP_URL=http://127.0.0.1:3100
+        export STRIPE_PLATFORM_SECRET_KEY=sk_test_platform_e2e
+        export STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_platform_e2e
+        export STRIPE_PLATFORM_PRICE_MAP_JSON='{"growth":{"monthly":"price_monthly_growth","annual":"price_annual_growth"}}'
+        export HOSTNAME=0.0.0.0
+        export PORT=3100
+        export PLAYWRIGHT_SKIP_WEBSERVER=1
+        node scripts/e2e-web-server.mjs > /tmp/microsaas-factory-e2e-server.log 2>&1 &
+        SERVER_PID=$$!
+        trap 'kill $$SERVER_PID 2>/dev/null || true' EXIT
+        for i in $(seq 1 240); do
+          if node -e "fetch('http://127.0.0.1:3100/robots.txt').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"; then
+            npx playwright test
+            exit $?
+          fi
+          sleep 1
+        done
+        cat /tmp/microsaas-factory-e2e-server.log
+        echo "E2E web server did not become ready in time."
+        exit 1
 
   - name: gcr.io/cloud-builders/docker
     args:

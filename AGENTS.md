@@ -1,9 +1,9 @@
 ---
-version: 1.0.0
-last_reviewed: 2026-04-21
+version: 1.0.1
+last_reviewed: 2026-04-22
 owners:
-  - "{{TBD: create /CODEOWNERS and name accountable owners}}"
-risk_class: "{{TBD: confirm declared project risk class; no SIL/ASIL/GAMP/EU-AI-Act classification was found in-repo}}"
+  - "Nay Linn Aung <na27@hood.edu>"
+risk_class: "standard-saas-prelaunch"
 scope:
   - "/"
   - "All files unless a deeper AGENTS.md exists"
@@ -43,6 +43,7 @@ spec_refs:
 |-- src/lib/server/          # Server runtime, auth, persistence, integrations; CONTROLLED
 |-- src/lib/firebase/        # Client Firebase config; CONTROLLED
 |-- scripts/                 # Deploy, runtime, ops verification; CONTROLLED
+|-- contracts/               # Versioned onboarding/public data contracts; CONTROLLED
 |-- e2e/                     # Playwright browser regression suite; STANDARD
 |-- public/                  # Static assets; STANDARD
 |-- .local/ .next/ test-results/  # GENERATED
@@ -52,12 +53,13 @@ spec_refs:
 
 | path | risk class | ownership / approval |
 | --- | --- | --- |
-| `/src/lib/server/**` | `CONTROLLED` | `{{TBD: CODEOWNERS owner}}`; human review required |
-| `/src/lib/firebase/**` | `CONTROLLED` | `{{TBD: CODEOWNERS owner}}`; human review required |
-| `/src/app/api/**` | `CONTROLLED` | `{{TBD: CODEOWNERS owner}}`; human review required |
-| `/src/app/admin/**` | `CONTROLLED` | `{{TBD: CODEOWNERS owner}}`; human review required |
-| `/scripts/**` | `CONTROLLED` | `{{TBD: CODEOWNERS owner}}`; human review required |
-| `/Dockerfile`, `/cloudbuild.yaml`, `/.env.example`, `/next.config.ts`, `/src/instrumentation.ts` | `CONTROLLED` | `{{TBD: CODEOWNERS owner}}`; human review required |
+| `/src/lib/server/**` | `CONTROLLED` | `Nay Linn Aung <na27@hood.edu>`; human review required |
+| `/src/lib/firebase/**` | `CONTROLLED` | `Nay Linn Aung <na27@hood.edu>`; human review required |
+| `/src/app/api/**` | `CONTROLLED` | `Nay Linn Aung <na27@hood.edu>`; human review required |
+| `/src/app/admin/**` | `CONTROLLED` | `Nay Linn Aung <na27@hood.edu>`; human review required |
+| `/scripts/**` | `CONTROLLED` | `Nay Linn Aung <na27@hood.edu>`; human review required |
+| `/contracts/**` | `CONTROLLED` | `Nay Linn Aung <na27@hood.edu>`; human review required |
+| `/Dockerfile`, `/cloudbuild.yaml`, `/.env.example`, `/next.config.ts`, `/src/instrumentation.ts` | `CONTROLLED` | `Nay Linn Aung <na27@hood.edu>`; human review required |
 | `/src/app/**` excluding `/src/app/api/**` and `/src/app/admin/**` | `STANDARD` | normal review |
 | `/src/components/**` excluding auth/admin integration surfaces | `STANDARD` | normal review |
 | `/src/lib/**` excluding `/src/lib/server/**` and `/src/lib/firebase/**` | `STANDARD` | normal review |
@@ -217,12 +219,12 @@ npm ci && npm run lint && npm test && npm run build && docker build -t microsaas
 
 | command | reason | exception holder |
 | --- | --- | --- |
-| `npm install <pkg>@<version> --save-exact` | mutates the dependency graph and lockfile | `{{TBD: dependency owner from /CODEOWNERS}}` |
-| `gcloud builds submit --config=cloudbuild.yaml ...` | remote build and deploy side effects | `{{TBD: release owner from /CODEOWNERS}}` |
-| `pwsh ./scripts/configure-cloud-run-runtime.ps1 ...` | mutates production runtime configuration and secret refs | `{{TBD: release owner from /CODEOWNERS}}` |
-| `pwsh ./scripts/setup-cloud-scheduler.ps1 ...` | mutates automation infrastructure | `{{TBD: ops owner from /CODEOWNERS}}` |
-| `pwsh ./scripts/setup-monitoring-alerts.ps1 ...` | mutates monitoring and paging behavior | `{{TBD: ops owner from /CODEOWNERS}}` |
-| `pwsh ./scripts/verify-public-edge.ps1 ...` | performs live-edge network checks against a named domain | `{{TBD: ops owner from /CODEOWNERS}}` |
+| `npm install <pkg>@<version> --save-exact` | mutates the dependency graph and lockfile | `Nay Linn Aung <na27@hood.edu>` |
+| `gcloud builds submit --config=cloudbuild.yaml ...` | remote build and deploy side effects | `Nay Linn Aung <na27@hood.edu>` |
+| `pwsh ./scripts/configure-cloud-run-runtime.ps1 ...` | mutates production runtime configuration and secret refs | `Nay Linn Aung <na27@hood.edu>` |
+| `pwsh ./scripts/setup-cloud-scheduler.ps1 ...` | mutates automation infrastructure | `Nay Linn Aung <na27@hood.edu>` |
+| `pwsh ./scripts/setup-monitoring-alerts.ps1 ...` | mutates monitoring and paging behavior | `Nay Linn Aung <na27@hood.edu>` |
+| `pwsh ./scripts/verify-public-edge.ps1 ...` | performs live-edge network checks against a named domain | `Nay Linn Aung <na27@hood.edu>` |
 
 ### Denylist
 
@@ -243,7 +245,7 @@ npm ci && npm run lint && npm test && npm run build && docker build -t microsaas
 | --- | --- | --- | --- |
 | Unit and route tests | `npm test` | `cloudbuild.yaml` step `npm test` | 100% pass rate on the existing Vitest suite; `{{TBD: add line coverage tooling and thresholds}}` |
 | Build and runtime smoke | `npm run build` | `cloudbuild.yaml` step `npm run build` | 100% pass rate |
-| Browser integration | `npm run test:e2e` | `{{TBD: add Playwright CI job path}}` | 100% pass rate whenever `src/app/**`, `src/components/**`, `src/app/api/**`, or `e2e/**` changes |
+| Browser integration | `npm run test:e2e` | `cloudbuild.yaml` step `Playwright E2E` | 100% pass rate whenever `src/app/**`, `src/components/**`, `src/app/api/**`, or `e2e/**` changes |
 | Contract and persistence regression | `npm test` | `cloudbuild.yaml` step `npm test` | all affected API, service, and persistence tests pass when `src/app/api/**`, `src/lib/server/**`, or `src/lib/types.ts` changes |
 | ML-specific inference regression | `npm test` and `rg -n "gemini-2\\.5-(flash|pro)|temperature" src/lib/server/ai.ts` | `cloudbuild.yaml` unit-test step | no unreviewed model-ID or temperature drift; all related tests pass |
 | Property-based tests | `{{TBD: add property-based command}}` | `{{TBD: add property-based CI gate}}` | BLOCKED until tooling exists |
@@ -344,12 +346,12 @@ Appendix A - Assumptions, Risks & Verification
 - [ASSUMPTION] Active stack was inferred from checked-in files as Next.js 16, React 19, TypeScript strict, Firebase Auth, Firestore, and Vertex AI integration.
 - [ASSUMPTION] Deployment target was inferred from `Dockerfile`, `cloudbuild.yaml`, and `README.md` as Docker to Google Cloud Run via Cloud Build.
 - [ASSUMPTION] Topology was inferred as a single application repository, not a monorepo with multiple package roots.
-- [ASSUMPTION] No `/CODEOWNERS`, `/SECURITY.md`, `/CONTRIBUTING.md`, `/.pre-commit-config.yaml`, `/Makefile`, `/Taskfile`, `/pyproject.toml`, or `/conftest.py` was found.
-- [ASSUMPTION] No in-repo training pipeline, model registry, feature store, contracts directory, `MODEL_CARD.md`, or `DATASET_CARD.md` was found.
+- [ASSUMPTION] `/CODEOWNERS` is present and currently maps all controlled paths to Nay Linn Aung (`na27@hood.edu`).
+- [ASSUMPTION] No in-repo training pipeline, model registry, feature store, or dataset pipeline exists today; `/contracts/**` may exist for versioned onboarding/data contracts without implying a training system.
 - [ASSUMPTION] Current ML posture is inference-only through `src/lib/server/ai.ts`.
 - [ASSUMPTION] `ACTIVITY_LOG.md` and `DEVELOPMENT_ACTIVITY_LOG.md` are the current trace artifacts until a formal traceability matrix exists.
 - [ASSUMPTION] No `.github/` CI or PR-template workflow was found; Cloud Build is the only checked-in CI signal.
-- [ASSUMPTION] Domain, regulatory regime, failure cost, and formal risk classification remain unresolved and therefore stay visible as `{{TBD: ...}}`.
+- [ASSUMPTION] The active release posture is standard SaaS prelaunch and does not justify regulated-release readiness claims while SBOM, traceability, and CR workflow gaps remain open.
 
 | risk | rule ID |
 | --- | --- |
@@ -376,9 +378,7 @@ Agent-compliance test strategy:
 
 Open questions:
 
-1. [BLOCKING] Who owns `/CODEOWNERS`, and what are the actual reviewer groups for `CONTROLLED` and `FROZEN` paths?
-2. [BLOCKING] What is the declared project risk class and regulatory regime for this repository: `{{TBD: SIL/ASIL/GAMP/EU AI Act/medical/other}}`?
-3. [BLOCKING] What formal Change Request identifier format and storage system should replace `{{TBD: formal CR system path}}`?
-4. [BLOCKING] What path should hold the formal traceability matrix that replaces the temporary activity-log requirement?
-5. [BLOCKING] What SBOM, secret-scan, container-scan, and coverage tooling should be added, and where should their CI entrypoints live?
-6. [BLOCKING] If training or local model artifacts are planned, what are the approved registry, dataset manifest, split policy, and promotion commands?
+1. [BLOCKING] What formal Change Request identifier format and storage system should replace `{{TBD: formal CR system path}}`?
+2. [BLOCKING] What path should hold the formal traceability matrix that replaces the temporary activity-log requirement?
+3. [BLOCKING] What SBOM, secret-scan, container-scan, and coverage tooling should be added, and where should their CI entrypoints live?
+4. [BLOCKING] If training or local model artifacts are planned, what are the approved registry, dataset manifest, split policy, and promotion commands?

@@ -40,6 +40,9 @@ test("founder can persist build state and trigger build-tab refresh actions", as
   await page.getByLabel("Notes").fill("Do not start launch review until the release dry-run is complete.");
   await page.getByRole("button", { name: "Save build state" }).click();
   await page.waitForLoadState("networkidle");
+  await expect(page.getByLabel("Release goal")).toHaveValue(
+    "Ship the first founder-ready beta lane",
+  );
 
   await page.goto(`/app/products/${productId}/build`);
   await expect(page.getByLabel("Release goal")).toHaveValue(

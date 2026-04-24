@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SITE_DESCRIPTION } from "@/lib/site";
+
 const { getPublicFunnelStateMock } = vi.hoisted(() => ({
   getPublicFunnelStateMock: vi.fn(),
 }));
@@ -34,6 +36,7 @@ describe("metadata routes", () => {
     const route = manifest();
 
     expect(route.name).toBe("MicroSaaS Factory");
+    expect(route.description).toBe(SITE_DESCRIPTION);
     expect(route.icons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ src: "/icon-192.png" }),

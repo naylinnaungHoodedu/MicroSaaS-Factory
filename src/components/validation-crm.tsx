@@ -75,10 +75,10 @@ export function ValidationTaskList({
         return (
           <article
             key={task.id}
-            className="rounded-[1.35rem] border border-white/10 bg-slate-950/55 p-5"
+            className="surface-proof rounded-[1.6rem] p-5 shadow-lg shadow-black/10"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={cn(
@@ -100,12 +100,12 @@ export function ValidationTaskList({
                     </Link>
                   ) : null}
                 </div>
-                <h3 className="text-lg font-semibold text-white">{task.title}</h3>
+                <h3 className="text-lg font-semibold tracking-tight text-white">{task.title}</h3>
                 <p className="text-sm leading-7 text-slate-300">
                   {task.notes || "No task notes recorded."}
                 </p>
               </div>
-              <div className="space-y-2 text-right text-xs uppercase tracking-[0.18em] text-slate-500">
+              <div className="surface-data space-y-2 rounded-[1.2rem] border px-4 py-3 text-right text-[11px] uppercase tracking-[0.18em] text-slate-500">
                 <p>Due {formatDate(task.dueAt)}</p>
                 <p>Updated {formatDateTime(task.updatedAt)}</p>
               </div>
@@ -189,10 +189,10 @@ export function ValidationSessionList({
         return (
           <article
             key={session.id}
-            className="rounded-[1.35rem] border border-white/10 bg-slate-950/55 p-5"
+            className="surface-proof rounded-[1.6rem] p-5 shadow-lg shadow-black/10"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={cn(
@@ -214,7 +214,7 @@ export function ValidationSessionList({
                     </Link>
                   ) : null}
                 </div>
-                <h3 className="text-lg font-semibold text-white">
+                <h3 className="text-lg font-semibold tracking-tight text-white">
                   {session.context || "Validation transcript"}
                 </h3>
                 <p className="text-sm text-slate-400">
@@ -222,30 +222,30 @@ export function ValidationSessionList({
                   {toTitleCase(session.sourceMode)} transcript captured {formatDateTime(session.createdAt)}
                 </p>
               </div>
-              <div className="space-y-2 text-right text-xs uppercase tracking-[0.18em] text-slate-500">
+              <div className="surface-data space-y-2 rounded-[1.2rem] border px-4 py-3 text-right text-[11px] uppercase tracking-[0.18em] text-slate-500">
                 <p>Attempts {session.analysisAttempts}</p>
                 <p>Analyzed {formatDateTime(session.lastAnalyzedAt)}</p>
               </div>
             </div>
 
-            <p className="mt-4 max-h-40 overflow-hidden whitespace-pre-wrap text-sm leading-7 text-slate-300">
+            <p className="surface-data mt-4 max-h-40 overflow-hidden whitespace-pre-wrap rounded-[1.2rem] border px-4 py-4 text-sm leading-7 text-slate-300">
               {session.transcriptText}
             </p>
 
             {session.upload ? (
-              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">
+              <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-slate-500">
                 Upload: {session.upload.fileName} / {session.upload.contentType}
               </p>
             ) : null}
 
             {session.analysis ? (
-              <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Summary</p>
+              <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+                <div className="surface-data rounded-[1.35rem] border p-4">
+                  <p className="eyebrow text-slate-500">Summary</p>
                   <p className="mt-3 text-sm leading-7 text-slate-300">
                     {session.analysis.summary}
                   </p>
-                  <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">
+                  <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-slate-500">
                     Sentiment / stage
                   </p>
                   <p className="mt-2 text-sm text-slate-300">
@@ -267,11 +267,9 @@ export function ValidationSessionList({
                   ).map(({ title, items }) => (
                     <div
                       key={title}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                      className="surface-data rounded-[1.3rem] border p-4"
                     >
-                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                        {title}
-                      </p>
+                      <p className="eyebrow text-slate-500">{title}</p>
                       <ul className="mt-3 space-y-2 text-sm leading-7 text-slate-300">
                         {items.length > 0 ? (
                           items.map((item) => <li key={item}>{item}</li>)

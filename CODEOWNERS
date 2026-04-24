@@ -1,0 +1,13 @@
+# Primary accountable owner for the repository and all controlled paths.
+* na27@hood.edu
+
+/src/lib/server/** na27@hood.edu
+/src/lib/firebase/** na27@hood.edu
+/src/app/api/** na27@hood.edu
+/src/app/admin/** na27@hood.edu
+/scripts/** na27@hood.edu
+/Dockerfile na27@hood.edu
+/cloudbuild.yaml na27@hood.edu
+/.env.example na27@hood.edu
+/next.config.ts na27@hood.edu
+/src/instrumentation.ts na27@hood.edu
