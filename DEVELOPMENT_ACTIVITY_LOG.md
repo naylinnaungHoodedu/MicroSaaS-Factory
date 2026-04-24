@@ -2424,3 +2424,81 @@ Verification Timestamp: `2026-04-16 11:42:11 -04:00`
   - verification results
   - screenshot-review coverage
   - intentionally deferred UX debt
+
+## April 24, 2026 — Production Deployment Of All Completed Activities
+
+### Purpose Of This Update
+
+- This addendum records the production deployment execution performed on April 24, 2026 (11:04 PM – 11:25 PM EDT local time) after the completed development activities from April 21–23 had accumulated as uncommitted local work.
+- The session focused entirely on deploying existing verified work to production and logging the results, not on implementing new features.
+
+### Pre-Deployment State
+
+- 71 changed/new files in the local working tree (61 modified + 10 untracked)
+- Live production running revision `microsaas-factory-00011-6kb` from tag `deploy-20260422-3`
+- Local repository had advanced through 7 major implementation waves since last deploy:
+  - Self-serve launch refresh
+  - Public funnel SEO stabilization
+  - Local DB read-race hardening
+  - Commercial polish wave
+  - Full self-serve launch wave with governance contracts
+  - Whole-app UI/UX overhaul (2 passes)
+  - Edge verifier hardening
+
+### Pre-Deployment Verification Completed
+
+- `npm run lint` → clean
+- `npm test` → 163/163 passing (34 test files)
+- `npm run build` → 25 routes, clean (retry after OneDrive file-lock EPERM)
+- `npm run test:e2e` → 14/14 passing (39.5s)
+- `npm audit --audit-level=high` → no High/Critical
+
+### Git Operations Completed
+
+- Staged 71 files with `git add -A`
+- Committed on `codex/launch-hardening-rollout`: 77 files, +9,170 / −2,139
+- Fast-forward merged to `main`: 86 files, +11,647 / −2,058
+- Pushed to origin: `364886a..60e50c4 main -> main`
+- Verified clean working tree
+
+### Cloud Build Deployment Completed
+
+- Build ID: `09472ab8-2544-463c-8c6f-2e4c2c10ea30`
+- Duration: 8 minutes 32 seconds
+- All CI steps passed: npm ci → lint → 163 unit tests → build → 14 Playwright E2E → Docker build → push → Cloud Run deploy
+- Image: `us-central1-docker.pkg.dev/naylinnaung/microsaas-factory/web:deploy-20260424-1`
+- Image digest: `sha256:1195e976402955721db2ad50c4cab6ba525c976ebb0bb3209a7700729c005296`
+- Revision: `microsaas-factory-00012-hkf` serving 100% traffic
+- Status: SUCCESS
+
+### Post-Deployment Live Verification Completed
+
+- All 8 public routes return HTTP 200 with updated OG descriptions
+- All 7 security headers present and enforced (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP)
+- Edge verifier: 17 of 18 checks pass (only HTTP 302→301 external dependency fails)
+- SEO parity confirmed: homepage meta description, manifest description, sitemap coverage, and posture phrases all updated
+- Health endpoint: `ok: true` with accurate readiness (`pricingReady: true`, `signupIntentReady: true`, `checkoutReady: false`, `selfServeReady: false`, `automationReady: true`)
+
+### Files Deployed In This Session
+
+86 files touched in the fast-forward merge, including:
+
+| Category | Files Changed |
+|----------|--------------|
+| Public routes (pages + tests) | 15 |
+| Components (UI + tests) | 18 |
+| Server library (funnel, runtime, db, actions, view-models + tests) | 16 |
+| E2E browser tests | 4 |
+| Infrastructure (Dockerfile, cloudbuild, playwright config) | 3 |
+| Scripts and runbook | 2 |
+| Governance and contracts | 9 |
+| Documentation and reports | 7 |
+| CSS and metadata routes | 6 |
+| Other (constants, site.ts, public-content, test helpers) | 6 |
+
+### Current Repository And Production State After This Update
+
+- Repository: `main` at commit `60e50c4`, clean working tree, synchronized with `origin/main`
+- Production: revision `microsaas-factory-00012-hkf`, 100% traffic, all routes live
+- Test surface: 163 Vitest + 14 Playwright
+- Remaining work: external Firebase/Stripe credential provisioning and permanent HTTP redirect

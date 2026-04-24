@@ -1936,3 +1936,241 @@ This addendum records the full implementation and verification pass completed on
   - residual UX debt left intentionally out of scope
 
 *Logged on April 23, 2026 at 05:08 pm EDT after the second-pass refinement, full automated verification, and isolated local screenshot review.*
+
+---
+
+## April 24, 2026 — Full Production Deployment Of All Completed Activities
+
+> **Session window**: 11:04 PM – 11:25 PM EDT (April 23, 2026 local time)
+> **Engineer**: Antigravity AI Assistant
+> **Purpose**: Deploy all completed but uncommitted activities to production and log everything professionally
+
+This addendum records the comprehensive production deployment of all completed development activities that had accumulated in the local repository since the last deployment on April 22, 2026.
+
+### Pre-Deployment Deep Study Performed
+
+- Studied the live production site at `https://microsaasfactory.io` across all 7 public routes and the health endpoint
+- Analyzed the local repository state: 71 changed/new files representing work from April 21–23, 2026
+- Reviewed both activity logs totalling 4,366 lines of development history
+- Confirmed the live production site was running revision `microsaas-factory-00011-6kb` (tag `deploy-20260422-3`)
+- Confirmed the local repository had advanced significantly beyond the deployed state across UI/UX, SEO, governance, commercial polish, and reliability dimensions
+- Identified the OG description drift: live site still served `Invite-beta founder operating system...` while local repo had updated guided-signup copy
+
+### Pre-Deployment Local Verification Completed
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Linting | `npm run lint` | ✅ Clean, zero errors |
+| Unit tests | `npm test` (Vitest) | ✅ **163/163 tests passing** across 34 test files |
+| Production build | `npm run build` (Next.js 16 Turbopack) | ✅ Clean build — 25 routes, 0 errors |
+| Browser E2E | `npm run test:e2e` (Playwright) | ✅ **14/14 tests passing** in 39.5s |
+| Security audit | `npm audit --audit-level=high` | ✅ No High/Critical findings; 11 low/moderate transitive |
+
+Note: Initial build attempt hit a Windows/OneDrive `EPERM` file-lock on `.next/static`; resolved by clearing the build cache and retrying successfully.
+
+### Git Operations Completed
+
+| Step | Detail |
+|------|--------|
+| Stage | `git add -A` — 71 files staged (61 modified + 10 new/untracked) |
+| Commit | Committed on branch `codex/launch-hardening-rollout` — 77 files changed, +9,170 / −2,139 lines |
+| Merge | Fast-forward merged to `main` — 86 files changed, +11,647 / −2,058 lines |
+| Push | `git push origin main` → `364886a..60e50c4 main -> main` |
+| Verify | `git status` → clean working tree, `main` up to date with `origin/main` |
+
+### Commit Message Summary
+
+```
+Deploy UI/UX overhaul, SEO stabilization, commercial polish, governance bootstrap, and edge verifier hardening
+```
+
+### Cloud Build Deployment Completed
+
+| Step | Status | Detail |
+|------|--------|--------|
+| Source upload | ✅ | 177 files, 5.1 MiB archive to GCS |
+| Step 0: `npm ci` | ✅ | Dependencies installed from lockfile |
+| Step 1: `npm run lint` | ✅ | ESLint clean |
+| Step 2: `npm test` | ✅ | 163/163 tests passing |
+| Step 3: `npm run build` | ✅ | 25 routes compiled successfully |
+| Step 4: Playwright E2E | ✅ | **14/14 Playwright tests passing** (1.4 minutes) |
+| Step 5: Docker build | ✅ | Multi-stage image built successfully |
+| Step 6: Docker push | ✅ | Pushed to Artifact Registry with tag `deploy-20260424-1` |
+| Step 7: Cloud Run deploy | ✅ | New revision deployed and serving 100% traffic |
+| Build duration | | 8 minutes 32 seconds |
+
+### New Production Revision Details
+
+| Property | Value |
+|----------|-------|
+| Build ID | `09472ab8-2544-463c-8c6f-2e4c2c10ea30` |
+| Image tag | `deploy-20260424-1` |
+| Image digest | `sha256:1195e976402955721db2ad50c4cab6ba525c976ebb0bb3209a7700729c005296` |
+| Revision name | `microsaas-factory-00012-hkf` |
+| Traffic allocation | 100% |
+| Service URL | `https://microsaas-factory-54872079170.us-central1.run.app` |
+| Custom domain | `https://microsaasfactory.io` |
+
+### Post-Deployment Route Verification
+
+| Route | Status | Key Change Verified |
+|-------|--------|---------------------|
+| `GET /` (Homepage) | **200** ✅ | New OG description: "Founder operating system for solo technical founders..." |
+| `GET /pricing` | **200** ✅ | New OG description: "Compare the Growth plan, see how workspace billing opens..." |
+| `GET /signup` | **200** ✅ | New OG description: "Stage the founder workspace through guided signup..." |
+| `GET /login` | **200** ✅ | New OG description: "Return to a provisioned MicroSaaS Factory workspace..." |
+| `GET /waitlist` | **200** ✅ | New OG description: "Request invite review when higher-context, reviewed intake..." |
+| `GET /terms` | **200** ✅ | New OG description: "Launch-baseline terms for MicroSaaS Factory founder access, self-serve onboarding..." |
+| `GET /privacy` | **200** ✅ | New OG description: "Launch-baseline privacy disclosure for MicroSaaS Factory self-serve onboarding..." |
+| `GET /api/healthz` | **200** ✅ | Returns accurate readiness with runtime guidance |
+
+### Post-Deployment Security Header Verification
+
+| Header | Value | Status |
+|--------|-------|--------|
+| `Content-Security-Policy` | Full enforced CSP covering Firebase, Stripe, GitHub, Resend | ✅ Present |
+| `Strict-Transport-Security` | `max-age=86400` | ✅ Present |
+| `X-Content-Type-Options` | `nosniff` | ✅ Present |
+| `X-Frame-Options` | `DENY` | ✅ Present |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | ✅ Present |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), browsing-topics=()` | ✅ Present |
+| `Cross-Origin-Opener-Policy` | `same-origin-allow-popups` | ✅ Present |
+
+### Post-Deployment Edge Verifier Results
+
+Ran `verify-public-edge.ps1 -Domain microsaasfactory.io -ExpectPermanentRedirect`:
+
+| Check | Result |
+|-------|--------|
+| HSTS | ✅ PASS |
+| Enforced CSP | ✅ PASS |
+| robots.txt | ✅ PASS |
+| sitemap.xml | ✅ PASS |
+| Terms page | ✅ PASS |
+| Privacy page | ✅ PASS |
+| Health endpoint | ✅ PASS |
+| Homepage title tag | ✅ PASS — `MicroSaaS Factory` |
+| Homepage meta description | ✅ PASS — Updated copy now live |
+| Homepage canonical | ✅ PASS — `https://microsaasfactory.io` |
+| Manifest description | ✅ PASS — Updated copy now live |
+| Sitemap URL coverage | ✅ PASS — 7 URLs (expanded from 3) |
+| SPF | ✅ PASS — `v=spf1 -all` at `send.microsaasfactory.io` |
+| DMARC | ✅ PASS — `v=DMARC1; p=quarantine; pct=100` |
+| CAA | ✅ PASS — `pki.goog` issue and issuewild |
+| HTTP redirect | ❌ FAIL — Still 302 (external Cloud Run/domain-mapping dependency) |
+
+**17 of 18 edge checks pass.** The only failure remains the external apex HTTP 302→301 behavior.
+
+### Post-Deployment SEO Parity Confirmation
+
+The live-to-local SEO parity drift that was documented in the April 23 edge verifier audit has now been resolved:
+
+| SEO Signal | Before Deploy (April 22 rev) | After Deploy (April 24 rev) |
+|------------|------------------------------|------------------------------|
+| Homepage OG description | `Invite-beta founder operating system...` | `Founder operating system for solo technical founders...` ✅ |
+| Manifest description | Stale invite-beta wording | Updated guided-signup copy ✅ |
+| Sitemap URLs | 3 URLs | 7 URLs ✅ |
+| Homepage posture phrases | Missing guided-signup summary | Present ✅ |
+
+### Post-Deployment Health Endpoint State
+
+```json
+{
+  "ok": true,
+  "readiness": {
+    "pricingReady": true,
+    "signupIntentReady": true,
+    "checkoutReady": false,
+    "selfServeReady": false,
+    "automationReady": true
+  },
+  "guidance": {
+    "summary": "Repo-controlled launch work still needs self-serve activation and stripe checkout.",
+    "nextStep": "Finish the remaining Firebase, Stripe, or runtime setup, deploy the build, verify /api/healthz, then run verify-public-edge.ps1 with launch expectations."
+  }
+}
+```
+
+### What Was Deployed (Complete Inventory)
+
+This deployment brought the following completed activities from the local repository to production:
+
+#### 1. Whole-App UI/UX Overhaul (2 passes)
+- Rebuilt shared visual foundation in `globals.css` with stronger dark-surface hierarchy
+- Reworked shared UI primitives in `ui.tsx` and `public-ui.tsx`
+- Replaced old wrapping header-link behavior with responsive menu patterns
+- Reframed homepage to lead with product value and workflow proof
+- Improved pricing, signup, login, and waitlist visual distinction and clarity
+- Reworked founder dashboard, CRM, product-lane navigation for improved scanability
+- Tightened CTA contrast, section rhythm, and workspace layout
+
+#### 2. Public Funnel SEO Stabilization
+- Replaced static route-level metadata exports with funnel-aware `generateMetadata`
+- Aligned JSON-LD, canonical, OG, and Twitter descriptions from shared posture model
+- Added SEO/parity drift detection to edge verifier
+- Normalized homepage canonical comparison in edge verifier
+
+#### 3. Commercial Polish Wave
+- Added shared public-content module (`public-content.ts`) with FAQ, comparison, evidence grids
+- Added page-aware structured-data generation replacing fixed root JSON-LD
+- Reworked public commercial surfaces around shared content and schema layer
+- Improved public-form UX with clearer framing and duplicate-workspace recovery
+
+#### 4. Self-Serve Launch Wave
+- Added contract-first onboarding governance under `contracts/onboarding/`
+- Added `AGENTS.md`, `MODEL_CARD.md`, `DATASET_CARD.md`, versioned contracts
+- Rebuilt public surface around persistent shared header and self-serve-first messaging
+- Updated legal and metadata copy for self-serve onboarding plus checkout
+
+#### 5. Governance Bootstrap
+- Added `CODEOWNERS` for repository accountability
+- Updated root `AGENTS.md` with expanded governance rules
+- Classified `/contracts/**` as `CONTROLLED` in the governance table
+
+#### 6. Reliability Hardening
+- Added local DB read-race retry logic for transient JSON parse failures (Windows/OneDrive)
+- Added regression test proving retry behavior
+
+#### 7. Edge Verifier Hardening
+- Added backward-compatible live-parity checks for homepage metadata, manifest, sitemap, posture phrases
+- Normalized canonical comparison to avoid false-positive trailing-slash failures
+- Updated cloud-ops-runbook with SEO/parity verification examples
+
+#### 8. Documentation Updates
+- Updated `README.md` with current rollout posture
+- Updated `scripts/cloud-ops-runbook.md` with current verification guidance
+- Updated `.env.example` with current environment contract
+- Added `UI_UX_REFINEMENT_REPORT.md`
+- Added `COMMERCIAL_LAUNCH_REPORT.md`
+
+### Repository Commit History After This Session
+
+| Commit | Message |
+|--------|---------|
+| `60e50c4` | Deploy UI/UX overhaul, SEO stabilization, commercial polish, governance bootstrap, and edge verifier hardening |
+| `ff65870` | Complete launch hardening rollout and audit |
+| `364886a` | Log final deployment integration session — April 20, 2026 |
+| `0b782e2` | Deploy launch-readiness hardening, SEO metadata, health endpoint, and public funnel unification |
+| `c1381fa` | Refactor public funnel and harden production rollout |
+| `7b37b15` | Initial commit: MicroSaaS Factory - Founder Operating System |
+
+### Current State Summary
+
+- The production site at `https://microsaasfactory.io` is now running revision `microsaas-factory-00012-hkf` with all completed development work deployed
+- The GitHub repository at `https://github.com/naylinnaungHoodedu/MicroSaaS-Factory` is synchronized with the local repository at commit `60e50c4`
+- All 163 automated Vitest tests and 14 Playwright E2E tests pass both locally and in the Cloud Build pipeline
+- The production health endpoint returns `ok: true` with accurate readiness details and runtime guidance
+- The public funnel is operating in Guided Signup mode with public pricing visible, guided signup active, and checkout locked
+- SEO parity between the local repository and production is now confirmed by the edge verifier
+- Both Cloud Scheduler automation jobs remain active
+- No code-level work remains for the current feature scope
+
+### Remaining External Dependencies (Unchanged)
+
+These items are operational inputs, not missing application code:
+- Firebase client and admin credentials for Cloud Run
+- Stripe platform keys, webhook secret, and live price-map IDs for Cloud Run
+- Permanent HTTP 301 redirect (currently 302 via Cloud Run domain-mapping)
+- Feature flag flips for self-serve provisioning and checkout (gated on the above)
+
+*Addendum logged on April 24, 2026 at 11:25 PM EDT after deep codebase study, pre-deployment verification, git commit/push, Cloud Build deployment, post-deployment route/security/SEO verification, and edge verifier audit.*
