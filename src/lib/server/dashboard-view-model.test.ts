@@ -44,6 +44,8 @@ describe("buildDashboardPageViewModel", () => {
           overdueCount: 0,
           snoozedCount: 0,
           pendingAnalysisCount: 0,
+          topObjections: [],
+          topPainPoints: [],
         },
         availableTemplates: [],
         platformSubscription: {

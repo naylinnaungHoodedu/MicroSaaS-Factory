@@ -19,7 +19,7 @@ describe("buildPublicPageMetadata", () => {
 
     expect(metadata.alternates?.canonical).toBe("/pricing");
     expect(metadata.openGraph?.siteName).toBe("MicroSaaS Factory");
-    expect(metadata.twitter?.card).toBe("summary_large_image");
+    expect((metadata.twitter as Record<string, unknown>)?.card).toBe("summary_large_image");
     expect(metadata.keywords).toEqual(["microsaas", "pricing"]);
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { derivePublicFunnelState, type PublicFunnelSource } from "@/lib/server/funnel";
 
-function buildSource(overrides: Partial<PublicFunnelSource>) {
+function buildSource(overrides: Partial<PublicFunnelSource>): PublicFunnelSource {
   return {
     auth: {
       firebaseEnabled: true,
@@ -39,7 +39,7 @@ function buildSource(overrides: Partial<PublicFunnelSource>) {
       },
     ],
     readiness: {
-      environment: "production",
+      environment: "production" as const,
       productionSafe: true,
       publicPlans: [
         {
@@ -126,7 +126,7 @@ describe("derivePublicFunnelState", () => {
           proAiEnabled: false,
         },
         readiness: {
-          environment: "production",
+          environment: "production" as const,
           productionSafe: true,
           publicPlans: [
             {

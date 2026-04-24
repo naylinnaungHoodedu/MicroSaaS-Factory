@@ -103,6 +103,8 @@ describe("AdminConsoleSection", () => {
               overdueCount: 0,
               snoozedCount: 0,
               pendingAnalysisCount: 0,
+              topObjections: [],
+              topPainPoints: [],
             },
             productsNeedingOpsAttention: 0,
             attentionRunCount: 0,
@@ -115,7 +117,7 @@ describe("AdminConsoleSection", () => {
           invites: [],
           signupIntents: [],
           waitlist: [],
-        }}
+        } as never}
         viewModel={{
           funnel: {
             summary: {
