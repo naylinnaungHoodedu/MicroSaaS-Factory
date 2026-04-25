@@ -48,25 +48,23 @@ PHASE 2: BINDING SECRETS TO CLOUD RUN RUNTIME
 ================================================================================
 Now you must tell Cloud Run to mount those GCP secrets as environment variables inside the running container.
 
-Step 2.1: Use the Existing Setup Script
-You can use the provided PowerShell script in your repository to automatically configure the Cloud Run environment.
-1. Open PowerShell.
-2. Navigate to your repository root: `cd c:\Users\user\OneDrive\Documents\SaaS_Project`
-3. Execute the runtime configurator:
+Step 2.1: Use the Setup Script for Base Variables
+You can use the provided PowerShell script to automatically configure the base environment (like database backend and URLs).
+1. Open PowerShell and navigate to your repository root.
+2. Execute the runtime configurator:
    `.\scripts\configure-cloud-run-runtime.ps1 -ProjectId microsaas-factory-prod -Region us-central1 -AppUrl https://microsaasfactory.io -FirestoreProjectId microsaas-factory-prod`
-   *(Ensure you update the flags to match your actual GCP project ID and refer to the script for additional secret mapping flags).*
+   *(Ensure you update the flags to match your actual GCP project ID).*
 
-Step 2.2: Manual Verification (Alternative)
-If you prefer to configure this manually via the GCP Console:
-1. Navigate to "Cloud Run" in GCP.
-2. Select your `microsaas-factory` service.
-3. Click "Edit & Deploy New Revision".
-4. Go to the "Variables & Secrets" tab.
-5. Under "Secrets", click "Reference a secret".
-6. Select `microsaas_stripe_secret_key` and mount it as environment variable `STRIPE_PLATFORM_SECRET_KEY`.
-7. Select `microsaas_stripe_webhook_secret` and mount it as `STRIPE_PLATFORM_WEBHOOK_SECRET`.
-8. Select `microsaas_firebase_admin_key` and mount it as `FIREBASE_ADMIN_CREDENTIALS_JSON`.
-9. Click "Deploy".
+Step 2.2: Manually Mount Secrets (Required for JSON Payload)
+Because the Firebase Admin payload is a complex JSON string, it is safest to mount these secrets manually via the GCP Console.
+1. Navigate to "Cloud Run" in GCP and select your `microsaas-factory` service.
+2. Click "Edit & Deploy New Revision".
+3. Go to the "Variables & Secrets" tab.
+4. Under "Secrets", click "Reference a secret".
+5. Select `microsaas_stripe_secret_key` and mount it as environment variable `STRIPE_PLATFORM_SECRET_KEY`.
+6. Select `microsaas_stripe_webhook_secret` and mount it as `STRIPE_PLATFORM_WEBHOOK_SECRET`.
+7. Select `microsaas_firebase_admin_key` and mount it as `FIREBASE_ADMIN_CREDENTIALS_JSON`.
+8. Click "Deploy".
 
 ================================================================================
 PHASE 3: FINAL DOMAIN & DNS SETUP
