@@ -64,7 +64,10 @@ Because the Firebase Admin payload is a complex JSON string, it is safest to mou
 5. Select `microsaas_stripe_secret_key` and mount it as environment variable `STRIPE_PLATFORM_SECRET_KEY`.
 6. Select `microsaas_stripe_webhook_secret` and mount it as `STRIPE_PLATFORM_WEBHOOK_SECRET`.
 7. Select `microsaas_firebase_admin_key` and mount it as `FIREBASE_ADMIN_CREDENTIALS_JSON`.
-8. Click "Deploy".
+8. Under "Environment variables", click "Add Variable".
+9. Name: `STRIPE_PLATFORM_PRICE_MAP_JSON`
+   Value: `{"growth":{"monthly":"[YOUR_MONTHLY_PRICE_ID]","annual":"[YOUR_ANNUAL_PRICE_ID]"}}`
+10. Click "Deploy".
 
 ================================================================================
 PHASE 3: FINAL DOMAIN & DNS SETUP
