@@ -14,7 +14,7 @@ The report records launch-facing implementation, deployment evidence, production
 Current launch posture after this execution:
 
 - repo-side launch hardening is implemented and deployed
-- Cloud Build now gates on lint, unit tests, production build, and Playwright E2E
+- Cloud Build gates on lint, unit tests, V8 coverage generation, dependency audit, SBOM generation, production build, and Playwright E2E
 - production scheduler and monitoring are configured
 - authenticated automation routes execute successfully in production
 - edge verification now passes HSTS, CSP, legal routes, health, SPF, DMARC, and CAA
@@ -22,6 +22,7 @@ Current launch posture after this execution:
   - apex HTTP redirect still returning `302` instead of `301`
   - missing Firebase project/app bootstrap and production client/admin config
   - missing Stripe platform checkout secrets and price-map validation
+  - missing provider-issued DKIM records for the active transactional sender
 
 ## Execution Log
 
@@ -180,7 +181,65 @@ Completed locally before and during rollout:
 - Firebase self-serve cannot be considered launch-complete until Firebase client and admin readiness are green in production.
 - Long HSTS must not be promoted until HTTP redirect behavior is confirmed as permanent `301`.
 - The current domain edge appears to be served through Google-managed frontend behavior that is still emitting `302`; no load balancer or project-local URL map was found to adjust this directly from the current project resources.
-- Regulated-release claims remain out of scope while SBOM, traceability, and formal CR workflow gaps remain open.
+- Regulated-release claims remain out of scope while traceability, formal CR workflow, coverage-threshold, and pinned CI container-scan gaps remain open.
+
+## April 24, 2026 Audit Tooling Addendum
+
+### Summary
+
+This addendum records the repo-side implementation of the full self-serve audit remediation plan. Production Firebase, Stripe, DNS, and Cloud Run runtime mutation remain operator-owned tasks.
+
+### Repo Changes Completed
+
+- Added `@vitest/coverage-v8@4.1.4` and the `npm run test:coverage` command.
+- Added dependency, SBOM, container, and aggregate audit commands:
+  - `npm run audit:deps`
+  - `npm run sbom:generate`
+  - `npm run audit:container`
+  - `npm run audit:all`
+- Updated `cloudbuild.yaml` so Cloud Build runs coverage, dependency audit, and SBOM generation before the production build and Playwright gate.
+- Hardened the Cloud Build Playwright server cleanup path with quoted PID cleanup and `wait`.
+- Updated the runbook and README with the current 163 Vitest / 14 Playwright baseline and the Docker Scout local image gate.
+
+### Remaining Operator Tasks
+
+- Configure Firebase client and admin runtime values so `/api/healthz` reports `selfServeReady=true`.
+- Configure Stripe platform secret, webhook secret, and real Growth monthly/annual price IDs so `/api/healthz` reports `checkoutReady=true`.
+- Fix apex HTTP redirect from `302` to `301` before enabling long HSTS.
+- Add provider-issued DKIM records and run `verify-public-edge.ps1 -ExpectLaunchReady -DkimHosts ...`.
+
+## April 24, 2026 Full Audit Remediation Follow-up
+
+### Summary
+
+This follow-up implements the accepted remediation plan's repo-side fixes and re-runs the practical verification gates.
+
+### Repo Changes Completed
+
+- Fixed Cloud Build Playwright process cleanup to use real Bash PID variables (`$!` and `$SERVER_PID`) instead of escaped literals.
+- Added `/contracts/**` to `CODEOWNERS` for controlled contract ownership alignment.
+- Added a targeted `fast-xml-parser@5.7.1` override and regenerated `package-lock.json`; the direct `fast-xml-parser` advisory is no longer present.
+- Excluded generated `coverage/**` output from ESLint so coverage artifacts do not create lint warnings.
+
+### Verification Evidence
+
+- `npm ci` -> pass under Node 20.20.2
+- `npm run lint` -> pass
+- `npm test` -> pass, 163/163 tests
+- `npm run test:coverage` -> pass, V8 coverage generated
+- `npm run build` -> pass after regenerating generated `.next`
+- `npm run test:e2e` -> pass, 14/14 Playwright scenarios
+- `npm run audit:deps` -> pass for High/Critical threshold; remaining advisories are low/moderate upstream Firebase/Google transitive issues
+- `npm run sbom:generate` -> pass, `sbom.cdx.json` regenerated
+- `docker build -t microsaas-factory-local .` -> blocked by unavailable Docker Desktop Linux engine
+- Public-edge verifier -> pass except expected HTTP `302` redirect blocker
+
+### Production Blockers
+
+- Required Firebase and Stripe values are not present in local environment variables or Secret Manager, so production Cloud Run runtime mutation was not performed.
+- `/api/healthz` still reports `selfServeReady=false` and `checkoutReady=false`.
+- HTTP apex redirect remains `302`; long HSTS remains off.
+- DKIM remains provider-pending.
 
 ## April 22, 2026 Guided Public Launch Alignment Addendum
 

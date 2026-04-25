@@ -6,7 +6,7 @@
 [![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-orange?logo=firebase)](https://firebase.google.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-161%20unit%20%2B%2014%20e2e-brightgreen)](.)
+[![Tests](https://img.shields.io/badge/Tests-163%20unit%20%2B%2014%20e2e-brightgreen)](.)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
@@ -92,7 +92,7 @@ Current launch emphasis:
 | **AI** | Google Vertex AI (Gemini Flash / Pro) |
 | **Integrations** | GitHub API, GCP Cloud Run/Build, Stripe, Resend |
 | **Encryption** | AES-256-GCM for stored secrets |
-| **Testing** | Vitest (97 unit tests) + Playwright (E2E) |
+| **Testing** | Vitest (163 tests), Vitest V8 coverage, Playwright (14 E2E) |
 | **Deployment** | Docker → Google Cloud Run via Cloud Build |
 
 ---
@@ -169,17 +169,28 @@ See [`.env.example`](.env.example) for the complete variable reference.
 # Unit and route tests (Vitest)
 npm test
 
+# Unit coverage evidence (Vitest V8)
+npm run test:coverage
+
 # Browser E2E tests (Playwright)
 npx playwright install chromium   # one-time setup
 npm run test:e2e
+
+# Dependency and SBOM audit
+npm run audit:deps
+npm run sbom:generate
+
+# Container CVE audit after a local image build
+docker build -t microsaas-factory-local .
+npm run audit:container
 
 # Full readiness check
 npm run test:all
 ```
 
-**Current status**: 161/161 Vitest tests passing and 14/14 Playwright scenarios passing.
+**Current status**: 163/163 Vitest tests passing and 14/14 Playwright scenarios passing.
 
-Cloud Build now treats Playwright browser regression as a pre-deploy gate before the image build and Cloud Run deploy steps.
+Cloud Build now treats lint, unit tests, V8 coverage generation, dependency audit, SBOM generation, production build, and Playwright browser regression as pre-deploy gates before the image build and Cloud Run deploy steps.
 
 The Playwright harness runs against the standalone production build and uses an isolated database file via `MICROSAAS_FACTORY_LOCAL_DB_FILE`, so it does not mutate default development state.
 
@@ -190,14 +201,15 @@ The Playwright harness runs against the standalone production build and uses an 
 ### Docker + Cloud Run
 
 ```bash
-# Build the Docker image
-docker build -t microsaas-factory .
+# Build the Docker image and run the local container CVE gate
+docker build -t microsaas-factory-local .
+npm run audit:container
 
 # Deploy to Cloud Run (via Cloud Build)
 gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE_TAG=deploy-YYYYMMDD-1
 ```
 
-The Dockerfile pins the Node 20 base image by digest for deterministic rebuild posture, but this repository still does **not** claim regulated-release readiness while SBOM, traceability, and formal CR workflow gaps remain open.
+The Dockerfile pins the Node 20 base image by digest for deterministic rebuild posture. `npm run sbom:generate` emits `sbom.cdx.json`, and `npm run audit:container` uses Docker Scout against the locally built image. Docker Desktop must be running and Docker Scout must be authenticated before the local container CVE gate can pass. This repository still does **not** claim regulated-release readiness while traceability, formal CR workflow, coverage-threshold, and pinned CI container-scan gaps remain open.
 
 ### Pre-Deployment Checklist
 

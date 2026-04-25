@@ -2199,3 +2199,203 @@ These items are operational inputs, not missing application code:
 
 #### Outcome
 The repository is completely clean (zero type errors, zero lint warnings, 100% test coverage for defined paths). The local development environment matches the production release with a fully verified and hardened baseline.
+
+---
+
+### Session: Full Self-Serve Audit Tooling And Cloud Build Remediation
+**Date**: April 24, 2026
+
+**Goal**: Implement the repo-side full self-serve audit remediation plan while leaving production Firebase, Stripe, DNS, and Cloud Run runtime mutation as explicit operator tasks.
+
+#### Activities Performed
+1. Added `@vitest/coverage-v8@4.1.4` and new audit scripts for coverage, dependency CVE checks, SBOM generation, Docker Scout image scanning, and aggregate audit execution.
+2. Updated `cloudbuild.yaml` so Cloud Build now gates on coverage, dependency audit, and SBOM generation before production build, browser E2E, image build, push, and deploy.
+3. Hardened the Cloud Build Playwright web-server cleanup path with quoted PID cleanup and `wait`.
+4. Updated `AGENTS.md`, `README.md`, `COMMERCIAL_LAUNCH_REPORT.md`, and `scripts/cloud-ops-runbook.md` to document the current 163 Vitest / 14 Playwright baseline, SBOM command, and Docker Scout local image gate.
+5. Preserved operator ownership for Firebase client/admin configuration, Stripe platform secrets and price mapping, apex `301` redirect remediation, and DKIM DNS publication.
+
+#### Status
+Repo-side implementation completed with local verification. Full live self-serve readiness still depends on operator-provided runtime secrets and DNS/edge changes.
+
+#### Verification
+- `npm ci` passed after one retry for a transient Windows/OneDrive `EBUSY` file lock.
+- `npm run lint` passed.
+- `npm test` passed: 163/163 tests across 34 files.
+- `npm run test:coverage` passed and generated V8 coverage evidence.
+- `npm run build` passed.
+- `npm run test:e2e` passed: 14/14 Playwright scenarios.
+- `npm run audit:deps` passed the High/Critical threshold; low/moderate transitive advisories remain.
+- `npm run sbom:generate` produced `sbom.cdx.json`.
+- `docker build -t microsaas-factory-local .` remains blocked because the Docker Desktop Linux engine pipe is unavailable.
+- `npm run audit:container` remains blocked because Docker Scout requires Docker authentication.
+- Live `/api/healthz` still reports `checkoutReady=false` and `selfServeReady=false` pending operator Firebase/Stripe runtime configuration.
+- Live apex HTTP still returns `302` to HTTPS, and `selector1._domainkey.microsaasfactory.io` is still not published.
+
+---
+
+### Session: Full Audit Remediation Implementation Follow-up
+**Date**: April 24, 2026
+
+**Goal**: Implement the accepted audit remediation plan without overwriting existing workspace changes.
+
+**Changes Recorded**:
+- Corrected the Cloud Build Playwright E2E server cleanup PID expansion so Bash captures `$!` and cleans up `$SERVER_PID`.
+- Added `/contracts/**` to `CODEOWNERS` so controlled onboarding contracts have the same accountable owner as `AGENTS.md`.
+- Added a targeted `fast-xml-parser@5.7.1` npm override to address the safe moderate advisory without using the breaking `npm audit fix --force` path.
+
+**Remaining Operator-Owned Items**:
+- Production Firebase and Stripe runtime secrets still require real provider values before Cloud Run can report `selfServeReady=true` and `checkoutReady=true`.
+- HTTP apex redirect remains an external `302` launch blocker; long HSTS remains off.
+- Provider-issued DKIM records remain unpublished until the sender provider supplies exact hostnames and values.
+
+**Verification Completed**:
+- `npm ci` under Node 20.20.2 passed.
+- `npm run lint` under Node 20.20.2 passed after excluding generated `coverage/**` from ESLint.
+- `npm test` passed: 163/163 tests across 34 files.
+- `npm run test:coverage` passed and generated V8 coverage evidence.
+- `npm run build` passed after regenerating generated `.next` output that had been locked by Windows/OneDrive.
+- `npm run test:e2e` passed: 14/14 Playwright scenarios.
+- `npm run audit:deps` passed the High/Critical gate; remaining advisories are low/moderate Firebase/Google transitive issues where npm proposes a breaking Firebase Admin downgrade.
+- `npm run sbom:generate` regenerated `sbom.cdx.json`.
+- `docker build -t microsaas-factory-local .` remains blocked because the Docker Desktop Linux engine pipe is unavailable.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\verify-public-edge.ps1 -Domain microsaasfactory.io -ExpectPermanentRedirect` failed only on the expected HTTP `302` redirect posture; HSTS, CSP, robots, sitemap, legal pages, health, SPF, DMARC, and CAA passed.
+- Production inspection confirmed the required Firebase and Stripe runtime values are absent locally and absent from Secret Manager, so no Cloud Run runtime mutation was performed.
+
+---
+
+### Session: Full-Launch Production Hardening Implementation
+**Date**: April 25, 2026
+
+**Goal**: Implement the accepted full-launch production hardening plan while preserving the staged public funnel until runtime proof is green.
+
+**Changes Completed**:
+- Hardened `scripts/configure-cloud-run-runtime.ps1` with `-DryRun`, `-RequireLaunchReadySecrets`, required Firebase/Stripe launch input checks, Growth price-map JSON validation, latest-enabled Secret Manager validation before non-dry-run Cloud Run updates, and redacted assignment summaries.
+- Hardened `scripts/verify-public-edge.ps1` so DKIM launch checks accept provider-issued TXT records or CNAME delegation records.
+- Updated `scripts/cloud-ops-runbook.md` with the operator-run full-launch runtime sequence, default Secret Manager names, dry-run command, health checks, feature-flag hold points, and final launch verification.
+- Preserved the existing audit-tooling work already in the tree: coverage/audit/SBOM scripts, Cloud Build coverage/audit/SBOM gates, `fast-xml-parser@5.7.1` override, generated coverage ignore, and `/contracts/**` CODEOWNERS ownership.
+
+**Verification Completed**:
+- `npm ci` passed.
+- `npm run lint` passed.
+- `npm test` passed: 163/163 tests across 34 files.
+- `npm run test:coverage` passed and emitted V8 coverage evidence.
+- `npm run build` initially hit a generated `.next` OneDrive/Windows `EPERM` unlink lock; after verifying and removing only generated `.next`, `npm run build` passed.
+- `npm run test:e2e` passed: 14/14 Playwright scenarios.
+- `npm run audit:deps` passed the High/Critical gate; 2 low and 10 moderate upstream advisories remain.
+- `npm run sbom:generate` regenerated `sbom.cdx.json`.
+- `git diff --check` passed.
+- `scripts/configure-cloud-run-runtime.ps1 -RequireLaunchReadySecrets -DryRun` passed with placeholder launch inputs and printed redacted assignment summaries only.
+- `scripts/verify-public-edge.ps1 -Domain microsaasfactory.io` passed for the current staged posture.
+
+**Remaining Operator-Owned Blockers**:
+- Docker image build and Docker Scout container audit remain blocked locally because Docker Desktop's Linux engine pipe is unavailable, although Docker Scout CLI is installed.
+- Live `/api/healthz` still reports `selfServeReady=false` and `checkoutReady=false`; Firebase client/admin values, Stripe platform secret, Stripe webhook secret, and real Growth price-map values are still absent from the live runtime.
+- Live apex HTTP still returns `302 Found` to HTTPS instead of the required permanent `301`.
+- `selector1._domainkey.microsaasfactory.io` and `selector2._domainkey.microsaasfactory.io` are not published as TXT or CNAME DKIM records.
+- Mutating Cloud Run, Secret Manager, DNS, Firebase, and Stripe changes remain operator-run; no secret values were requested, printed, committed, or logged.
+
+---
+
+### Session: Ultimate Help Center Implementation
+**Date**: April 25, 2026
+
+**Goal**: Add a screenshot-inspired public and authenticated Help Center for MicroSaaS Factory while preserving the existing dark product system and using read-only workspace context for authenticated founders.
+
+**Changes Completed**:
+- Added shared Help Center content and rendering for quick start guidance, workspace area map, workflow map, status meanings, troubleshooting, and Help FAQ.
+- Added public `/help` with public shell navigation, SEO metadata, FAQ structured data, sitemap inclusion, and launch-readiness-aware guidance from the current public funnel state.
+- Added authenticated `/app/help` with existing founder auth, dashboard, public funnel, pricing, and dashboard view-model reads to show workspace-specific product counts, CRM pressure, launch gate progress, billing posture, current product lanes, and direct recovery links.
+- Added Help to the public header/footer navigation and the authenticated app navigation.
+- Added Vitest coverage for public Help metadata/content, workspace-aware Help rendering, public shell Help navigation, and sitemap Help inclusion.
+- Added Playwright coverage for public Help rendering and signed-in founder navigation to workspace-aware Help.
+
+**Verification Completed**:
+- `rg --files -g "AGENTS.md"` confirmed the root rules apply to the edited Help paths.
+- `git diff --name-only HEAD` reviewed the tracked change scope; new Help files were also confirmed with `git status --short`.
+- Focused Vitest Help/navigation tests passed: 8/8 tests across 4 files.
+- `npm run lint` passed.
+- `npm test` passed: 166/166 tests across 36 files.
+- `npm run test:coverage` passed and emitted V8 coverage evidence.
+- `npm run build` passed and listed both `/help` and `/app/help`.
+- `npm run test:e2e` passed: 15/15 Chromium scenarios.
+- `npm ci` passed with the existing low/moderate transitive advisory report.
+- `npm run audit:deps` passed the High/Critical threshold; existing low/moderate transitive advisories remain.
+- `npm run sbom:generate` produced `sbom.cdx.json`.
+- `git diff --check` passed.
+- `rg -n "@ts-ignore|\\bany\\b" src e2e scripts | rg -v "expect\\.any"` returned no matches.
+
+**Blocked/Deferred Gates**:
+- `docker build -t microsaas-factory-local .` remains blocked locally because the Docker Desktop Linux engine pipe is unavailable.
+- `npm run audit:container` was not run because the local Docker image could not be built without the Docker engine.
+
+---
+
+### Session: Ultimate Help Center Polish Continuation
+**Date**: April 25, 2026
+
+**Goal**: Polish the existing public and authenticated Help Center into a denser, clearer, read-only operating guide without adding support tickets, persistence, APIs, runtime settings, dependencies, or deployment changes.
+
+**Changes Completed**:
+- Refined the Help hero into distinct public and workspace modes with a stronger first-screen hierarchy, a compact "Read this first" guidance band, mode-specific signal tiles, and horizontally scrollable section anchors for smaller screens.
+- Added priority-path guidance for public visitors and signed-in founders so Help now leads with the next recoverable action before expanding into the full workspace map.
+- Tightened Help copy around founder-email recovery, first product lane selection, CRM pressure, controlled checkout, stale integrations, launch gates, and readiness labels.
+- Made workspace area cards denser by replacing repeated mini-panels with compact capability and recommended-action lists.
+- Updated public Help, workspace Help, and Playwright Help assertions to cover the new priority and mode-specific content.
+
+**Verification Completed**:
+- `npx tsc --noEmit --pretty false` passed.
+- `npx eslint src\components\help-center.tsx src\lib\help-content.ts src\app\help\page.test.tsx src\app\app\help\page.test.tsx e2e\help.spec.ts` passed.
+- Focused Help/navigation Vitest run passed: 8/8 tests across 4 files.
+- `npm ci` passed; npm still reported the existing 2 low and 10 moderate transitive advisories.
+- `npm run lint` passed.
+- `npm test` passed: 166/166 tests across 36 files.
+- `npm run test:coverage` passed and emitted V8 coverage evidence; `src/components/help-center.tsx` reported 95.55% statement coverage.
+- `npm run build` passed and listed both `/help` and `/app/help`.
+- `npm run test:e2e` passed: 15/15 Chromium scenarios.
+- `npm run audit:deps` passed the High/Critical threshold; the existing low/moderate transitive advisories remain.
+- `npm run sbom:generate` regenerated `sbom.cdx.json`.
+- `git diff --check` passed.
+- `rg -n "@ts-ignore|\\bany\\b" src e2e scripts | rg -v "expect\\.any"` returned no matches.
+
+**Blocked/Deferred Gates**:
+- `docker build -t microsaas-factory-local .` failed because Docker could not connect to `//./pipe/dockerDesktopLinuxEngine`.
+- `npm run audit:container` was not run because no local Docker image could be built without the Docker engine.
+
+---
+
+### Session: Completed Activities Verification And GitHub Publication Prep
+**Date**: April 25, 2026
+
+**Goal**: Re-confirm the completed activity package, preserve the audit trail in the current folder, and prepare the full local change set for publication to `https://github.com/naylinnaungHoodedu/MicroSaaS-Factory`.
+
+**Activities Completed**:
+- Verified the requested GitHub remote is configured as `origin`.
+- Verified GitHub CLI availability and authenticated access for account `naylinnaungHoodedu`.
+- Verified `CODEOWNERS` exists before publishing controlled-path changes.
+- Reviewed the full change scope, including audit tooling, Cloud Build gates, launch-hardening scripts/runbook updates, Help Center routes/content/polish, public navigation/metadata/sitemap updates, E2E coverage, SBOM output, and activity-log evidence.
+- Confirmed controlled-path changes remain paired with updates to both activity logs.
+- Stopped the local development helper process before re-running verification so `.next` output and native packages were not held open by the prior server.
+
+**Verification Completed**:
+- `git status --short` reviewed the complete changed-file scope.
+- `git diff --check` passed.
+- `rg --files -g "AGENTS.md"` confirmed root governance applies outside the nested onboarding contracts subtree.
+- `rg -n "@ts-ignore|\\bany\\b" src e2e scripts | rg -v "expect\\.any"` returned no matches.
+- `npm ci` initially hit a transient Windows/OneDrive `EPERM` lock on `lightningcss.win32-x64-msvc.node`; after confirming no project-scoped Node/npm process was running and retrying, `npm ci` passed.
+- `npm run lint` passed.
+- `npm test` passed: 166/166 tests across 36 files.
+- `npm run test:coverage` passed and emitted V8 coverage evidence.
+- `npm run build` passed and listed both `/help` and `/app/help`.
+- `npm run test:e2e` passed: 15/15 Chromium scenarios.
+- `npm run audit:deps` passed the High/Critical threshold; the existing 2 low and 10 moderate transitive advisories remain.
+- `npm run sbom:generate` regenerated `sbom.cdx.json`.
+- `npx tsc --noEmit --pretty false` passed.
+- `git diff --name-only HEAD -- .local .next test-results tsconfig.tsbuildinfo` returned no generated-path tracked diffs.
+- Final project-scoped process check found no lingering Node, npm, cmd, or Playwright process tied to this workspace.
+
+**Blocked/Deferred Gates**:
+- `docker build -t microsaas-factory-local .` failed because Docker could not connect to `//./pipe/dockerDesktopLinuxEngine`.
+- `npm run audit:container` remains blocked because no local Docker image can be built while Docker Desktop's Linux engine is unavailable.
+
+**Publication Status**:
+- Prepared for branch, commit, push, and draft pull request creation through the authenticated GitHub workflow.

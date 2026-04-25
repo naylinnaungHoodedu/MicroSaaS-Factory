@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const PUBLIC_PRIMARY_LINKS = [
   { href: "/", label: "Overview" },
+  { href: "/help", label: "Help" },
   { href: "/pricing", label: "Pricing" },
   { href: "/signup", label: "Get started" },
   { href: "/waitlist", label: "Waitlist" },
@@ -13,6 +14,7 @@ const PUBLIC_PRIMARY_LINKS = [
 ] as const;
 
 const PUBLIC_FOOTER_LINKS = [
+  { href: "/help", label: "Help" },
   { href: "/pricing", label: "Pricing" },
   { href: "/login", label: "Founder login" },
   { href: "/waitlist", label: "Waitlist" },

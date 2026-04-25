@@ -21,6 +21,25 @@ steps:
     entrypoint: npm
     args: ["test"]
 
+  - id: Coverage
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
+    entrypoint: npm
+    args: ["run", "test:coverage"]
+
+  - id: Dependency Audit
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
+    entrypoint: npm
+    args: ["run", "audit:deps"]
+
+  - id: SBOM
+    name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        npm run sbom:generate
+        test -s sbom.cdx.json
+
   - id: Build
     name: node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
     entrypoint: npm
@@ -48,8 +67,12 @@ steps:
         export PORT=3100
         export PLAYWRIGHT_SKIP_WEBSERVER=1
         node scripts/e2e-web-server.mjs > /tmp/microsaas-factory-e2e-server.log 2>&1 &
-        SERVER_PID=$$!
-        trap 'kill $$SERVER_PID 2>/dev/null || true' EXIT
+        SERVER_PID=$!
+        cleanup() {
+          kill "$SERVER_PID" 2>/dev/null || true
+          wait "$SERVER_PID" 2>/dev/null || true
+        }
+        trap cleanup EXIT
         for i in $(seq 1 240); do
           if node -e "fetch('http://127.0.0.1:3100/robots.txt').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"; then
             npx playwright test

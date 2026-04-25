@@ -12,6 +12,51 @@ Use the staged rollout in this order:
 6. Turn on checkout only after `/api/healthz` reports `checkoutReady=true`, `guidance.repoControlledIssues` no longer lists Stripe checkout work, and the public edge verification passes.
 7. Promote long HSTS only after the apex HTTP host returns a permanent `301`.
 
+## Full Launch Runtime Configuration
+
+Full self-serve plus checkout is an operator-run sequence because it writes Cloud Run runtime configuration and depends on real Firebase, Stripe, DNS, and Secret Manager values. Do not paste secret values into task logs, commit messages, screenshots, or shell transcripts.
+
+Use these Secret Manager names unless an operator records an approved replacement:
+
+- `microsaas-factory-admin-access-key`
+- `microsaas-factory-encryption-key`
+- `microsaas-factory-internal-automation-key`
+- `microsaas-factory-stripe-platform-secret-key`
+- `microsaas-factory-stripe-platform-webhook-secret`
+- `microsaas-factory-firebase-service-account-private-key`
+
+Before changing Cloud Run, an authorized operator must confirm that each secret exists, has an enabled latest version, and is readable by the runtime service account created by `setup-cloud-run-service-account.ps1`.
+
+Dry-run the exact launch-ready Cloud Run update first. The dry run validates required launch inputs and prints only redacted assignment summaries; it does not call `gcloud services enable` or update Cloud Run:
+
+```powershell
+pwsh ./scripts/configure-cloud-run-runtime.ps1 `
+  -ProjectId YOUR_GCP_PROJECT `
+  -AppUrl https://microsaasfactory.io `
+  -FirestoreProjectId YOUR_GCP_PROJECT `
+  -RuntimeServiceAccountEmail microsaas-factory-runner@YOUR_GCP_PROJECT.iam.gserviceaccount.com `
+  -FirebaseApiKey "<firebase-api-key>" `
+  -FirebaseAuthDomain "<firebase-auth-domain>" `
+  -FirebaseProjectId "<firebase-project-id>" `
+  -FirebaseAppId "<firebase-app-id>" `
+  -FirebaseServiceAccountProjectId "<firebase-service-account-project-id>" `
+  -FirebaseServiceAccountClientEmail "<firebase-service-account-client-email>" `
+  -FirebaseServiceAccountPrivateKeySecret microsaas-factory-firebase-service-account-private-key `
+  -StripePlatformSecretKeySecret microsaas-factory-stripe-platform-secret-key `
+  -StripePlatformWebhookSecretSecret microsaas-factory-stripe-platform-webhook-secret `
+  -StripePlatformPriceMapJson '{"growth":{"monthly":"price_live_monthly_growth","annual":"price_live_annual_growth"}}' `
+  -RequireLaunchReadySecrets `
+  -DryRun
+```
+
+After the dry run is reviewed, rerun the same command without `-DryRun`. The script validates configured Secret Manager refs and enabled versions before updating the service. After Cloud Run reports the new revision ready, verify:
+
+```powershell
+curl.exe -s https://microsaasfactory.io/api/healthz
+```
+
+Do not enable `selfServeProvisioningEnabled=true` or `checkoutEnabled=true` until `/api/healthz` reports `selfServeReady=true`, `checkoutReady=true`, and `automationReady=true`.
+
 ## Scheduler
 
 Use `setup-cloud-scheduler.ps1` after Cloud Run is deployed and `INTERNAL_AUTOMATION_KEY` is set on the service. The script enables the Cloud Scheduler API automatically before creating or updating the jobs.
@@ -64,8 +109,20 @@ Cloud Build should already be green on:
 
 - `npm run lint`
 - `npm test`
+- `npm run test:coverage`
+- `npm run audit:deps`
+- `npm run sbom:generate`
 - `npm run build`
 - `npm run test:e2e`
+
+Before a release claim, run the local image gate after Docker is available:
+
+```powershell
+docker build -t microsaas-factory-local .
+npm run audit:container
+```
+
+`npm run audit:container` uses Docker Scout against `local://microsaas-factory-local:latest` and fails on High or Critical CVEs. If Docker Desktop, Docker Scout, or Docker Scout authentication is unavailable, record the blocker instead of claiming container-scan completion.
 
 Run the verification script after each production rollout:
 
@@ -124,12 +181,22 @@ pwsh ./scripts/verify-public-edge.ps1 `
   -DkimHosts selector1._domainkey.microsaasfactory.io,selector2._domainkey.microsaasfactory.io
 ```
 
+The DKIM check accepts either provider-issued TXT records or CNAME-style DKIM delegation records. Use the exact hostnames from the sender provider dashboard.
+
 Suggested DNS posture for the production domain:
 
 - SPF TXT record for the active transactional sender host, usually `send.<domain>`
 - Provider-issued DKIM records
 - `_dmarc` TXT with `p=quarantine`
 - CAA records for the active certificate authority
+
+Full self-serve runtime prerequisites:
+
+- Firebase client config must set all required `NEXT_PUBLIC_FIREBASE_*` values on Cloud Run.
+- Firebase Admin must set `FIREBASE_SERVICE_ACCOUNT_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL`, and a Secret Manager-backed `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY`.
+- Stripe checkout must set Secret Manager-backed `STRIPE_PLATFORM_SECRET_KEY` and `STRIPE_PLATFORM_WEBHOOK_SECRET`.
+- `STRIPE_PLATFORM_PRICE_MAP_JSON` must map the public `growth` plan to real monthly and annual Stripe price IDs.
+- `/api/healthz` must report `selfServeReady=true` and `checkoutReady=true` before `selfServeProvisioningEnabled=true` and `checkoutEnabled=true` stay on.
 
 ## Manual verification
 

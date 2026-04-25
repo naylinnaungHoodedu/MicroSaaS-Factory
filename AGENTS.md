@@ -1,6 +1,6 @@
 ---
-version: 1.0.1
-last_reviewed: 2026-04-22
+version: 1.0.2
+last_reviewed: 2026-04-24
 owners:
   - "Nay Linn Aung <na27@hood.edu>"
 risk_class: "standard-saas-prelaunch"
@@ -209,8 +209,12 @@ npm ci && npm run lint && npm test && npm run build && docker build -t microsaas
 | `npm ci` | lockfile-resolved dependency install | none |
 | `npm run lint` | static policy gate | none |
 | `npm test` | unit, route, and service regression gate | none |
+| `npm run test:coverage` | Vitest V8 coverage evidence | none |
 | `npm run build` | standalone production-build gate | none |
 | `npm run test:e2e` | browser regression gate | none |
+| `npm run audit:deps` | dependency High/Critical CVE gate | none |
+| `npm run sbom:generate` | CycloneDX SBOM generation | none |
+| `npm run audit:container` | local Docker Scout High/Critical image scan after image build | none |
 | `rg --files` | non-mutating repo inspection | none |
 | `git diff --name-only` | change-scope inspection | none |
 | `docker build -t microsaas-factory-local .` | local reproducibility check | none |
@@ -243,26 +247,29 @@ npm ci && npm run lint && npm test && npm run build && docker build -t microsaas
 
 | layer | local run command | CI gate | minimum threshold |
 | --- | --- | --- | --- |
-| Unit and route tests | `npm test` | `cloudbuild.yaml` step `npm test` | 100% pass rate on the existing Vitest suite; `{{TBD: add line coverage tooling and thresholds}}` |
+| Unit and route tests | `npm test` and `npm run test:coverage` | `cloudbuild.yaml` steps `Unit` and `Coverage` | 100% pass rate on the existing Vitest suite; coverage report generated with Vitest V8; `{{TBD: add line coverage thresholds}}` |
 | Build and runtime smoke | `npm run build` | `cloudbuild.yaml` step `npm run build` | 100% pass rate |
 | Browser integration | `npm run test:e2e` | `cloudbuild.yaml` step `Playwright E2E` | 100% pass rate whenever `src/app/**`, `src/components/**`, `src/app/api/**`, or `e2e/**` changes |
 | Contract and persistence regression | `npm test` | `cloudbuild.yaml` step `npm test` | all affected API, service, and persistence tests pass when `src/app/api/**`, `src/lib/server/**`, or `src/lib/types.ts` changes |
 | ML-specific inference regression | `npm test` and `rg -n "gemini-2\\.5-(flash|pro)|temperature" src/lib/server/ai.ts` | `cloudbuild.yaml` unit-test step | no unreviewed model-ID or temperature drift; all related tests pass |
 | Property-based tests | `{{TBD: add property-based command}}` | `{{TBD: add property-based CI gate}}` | BLOCKED until tooling exists |
 | Fairness slices and drift checks | `{{TBD: add fairness and drift commands}}` | `{{TBD: add fairness and drift CI gate}}` | BLOCKED until domain, protected attributes, and reference datasets are declared |
-| Security and dependency scan | `npm run lint && npm audit --audit-level=high && rg -n "(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]+|sk_live_[A-Za-z0-9]+|AIza[0-9A-Za-z_-]{35})" .` | `cloudbuild.yaml` lint step plus `{{TBD: add secret/SBOM/container scan CI}}` | no new High/Critical CVEs; no secret-hit regex matches |
+| Security and dependency scan | `npm run lint && npm run audit:deps && npm run sbom:generate && docker build -t microsaas-factory-local . && npm run audit:container && rg -n "(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]+|sk_live_[A-Za-z0-9]+|AIza[0-9A-Za-z_-]{35})" .` | `cloudbuild.yaml` lint, dependency audit, coverage, and SBOM steps; container scan remains a local release gate until a pinned CI scanner is selected | no new High/Critical CVEs; SBOM generated; no secret-hit regex matches |
 
-8.1.1 MUST treat missing property-based, fairness, drift, SBOM, and container-scan tooling as unresolved gaps rather than silently passing them; verify with `rg -n -F "{{TBD:" AGENTS.md`.
+8.1.1 MUST treat missing property-based, fairness, drift, coverage-threshold, formal secret-scan, and pinned CI container-scan tooling as unresolved gaps rather than silently passing them; verify with `rg -n -F "{{TBD:" AGENTS.md`.
 # Rationale: Stated-but-unenforced controls are worse than visible gaps.
 
 ## 9. Quality Gates - Definition of Done
 
 - [ ] `npm run lint` exited `0`.
 - [ ] `npm test` exited `0`.
+- [ ] `npm run test:coverage` exited `0`.
 - [ ] `npm run build` exited `0`.
 - [ ] `npm run test:e2e` exited `0` when `git diff --name-only HEAD -- src/app src/components src/app/api e2e | grep -q .`, or the skip reason is recorded in both activity logs.
 - [ ] `git diff --name-only HEAD -- package.json` is empty, or `git diff --name-only HEAD -- package-lock.json` is non-empty.
 - [ ] `npm audit --audit-level=high` reports no new High/Critical findings, or the approved deviation cites `CR-...`.
+- [ ] `npm run sbom:generate` produced `sbom.cdx.json`.
+- [ ] `docker build -t microsaas-factory-local . && npm run audit:container` exited `0`, or the Docker engine/scanner blocker is recorded.
 - [ ] `git diff --name-only HEAD -- Dockerfile cloudbuild.yaml next.config.ts .env.example scripts src/app/api src/lib/server src/lib/firebase src/instrumentation.ts` is empty, or both `ACTIVITY_LOG.md` and `DEVELOPMENT_ACTIVITY_LOG.md` changed.
 - [ ] `git diff --name-only HEAD -- src/lib/server/ai.ts .env.example src/app/privacy/page.tsx src/app/terms/page.tsx` is empty, or the legal/runtime changes are consistent in the same change set.
 - [ ] `test ! -d training && test ! -d models && test ! -d contracts`, or nested ML governance files exist in the same change.
@@ -380,5 +387,5 @@ Open questions:
 
 1. [BLOCKING] What formal Change Request identifier format and storage system should replace `{{TBD: formal CR system path}}`?
 2. [BLOCKING] What path should hold the formal traceability matrix that replaces the temporary activity-log requirement?
-3. [BLOCKING] What SBOM, secret-scan, container-scan, and coverage tooling should be added, and where should their CI entrypoints live?
+3. [BLOCKING] What formal secret-scan tooling, coverage thresholds, and pinned CI container-scan runner should replace the current local regex, coverage-report, and Docker Scout gates?
 4. [BLOCKING] If training or local model artifacts are planned, what are the approved registry, dataset manifest, split policy, and promotion commands?

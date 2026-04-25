@@ -9,6 +9,11 @@
     "e2e:server": "node scripts/e2e-web-server.mjs",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.provider=v8",
+    "audit:deps": "npm audit --audit-level=high",
+    "sbom:generate": "npm sbom --sbom-format=cyclonedx --sbom-type=application > sbom.cdx.json",
+    "audit:container": "docker scout cves --exit-code --only-severity critical,high local://microsaas-factory-local:latest",
+    "audit:all": "npm run audit:deps && npm run test:coverage && npm run sbom:generate && npm run audit:container",
     "test:e2e": "npm run build && playwright test",
     "test:all": "npm test && npm run test:e2e"
   },
@@ -26,10 +31,14 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "4.1.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "fast-xml-parser": "5.7.1"
   }
 }

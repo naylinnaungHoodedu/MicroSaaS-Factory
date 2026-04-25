@@ -16,7 +16,7 @@ type PublicStructuredData = {
   "@graph": Array<Record<string, unknown>>;
 };
 
-export type PublicRouteSeoKey = "home" | "pricing" | "signup" | "login" | "waitlist";
+export type PublicRouteSeoKey = "home" | "pricing" | "signup" | "login" | "waitlist" | "help";
 
 export function buildPublicPageMetadata(input: {
   description?: string;
@@ -137,6 +137,22 @@ export function getPublicRouteSeoContent(
         "workspace recovery",
         "firebase login",
         "invite token login",
+      ],
+    };
+  }
+
+  if (route === "help") {
+    return {
+      title: "Help Center",
+      description:
+        "Operational Help Center for MicroSaaS Factory founders with guidance for signup, workspace recovery, product lanes, validation CRM, launch readiness, and billing posture.",
+      path: "/help",
+      keywords: [
+        "microsaas help",
+        "founder workspace help",
+        "validation CRM help",
+        "launch readiness guide",
+        "workspace recovery",
       ],
     };
   }

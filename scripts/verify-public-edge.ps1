@@ -181,6 +181,32 @@ function Get-DnsMxRecords {
   return $records
 }
 
+function Get-DnsCnameRecords {
+  param([string]$HostName)
+
+  try {
+    $records = Resolve-DnsName -Name $HostName -Type CNAME -ErrorAction Stop |
+      Where-Object { $_.NameHost } |
+      ForEach-Object { $_.NameHost.TrimEnd(".") }
+
+    if ($records.Count -gt 0) {
+      return $records
+    }
+  } catch {
+  }
+
+  $nslookupOutput = nslookup -type=cname $HostName 2>&1 | Out-String
+  $records = @()
+
+  foreach ($line in ($nslookupOutput -split "`r?`n")) {
+    if ($line -match "canonical name = (.+)$") {
+      $records += $Matches[1].Trim().TrimEnd(".")
+    }
+  }
+
+  return $records
+}
+
 function Get-DnsCaaRecords {
   param([string]$HostName)
 
@@ -503,12 +529,25 @@ if ($ExpectLaunchReady -and $DkimHosts.Count -eq 0) {
 
 foreach ($dkimHost in $DkimHosts) {
   try {
-    $dkimRecords = nslookup -type=txt $dkimHost 2>&1 | Out-String
+    $dkimTextRecords = @(Get-DnsTextRecords -HostName $dkimHost)
+    $dkimCnameRecords = @(Get-DnsCnameRecords -HostName $dkimHost)
+    $dkimText = $dkimTextRecords -join " "
+    $dkimPassed = $dkimText -match "k=rsa" -or
+      $dkimText -match "v=DKIM1" -or
+      $dkimCnameRecords.Count -gt 0
+    $dkimDetail = if ($dkimCnameRecords.Count -gt 0) {
+      "CNAME => $($dkimCnameRecords -join '; ')"
+    } elseif ($dkimTextRecords.Count -gt 0) {
+      $dkimTextRecords -join "; "
+    } else {
+      "<no TXT or CNAME records>"
+    }
+
     Assert-Condition `
       -Label "DKIM $dkimHost" `
-      -Condition ($dkimRecords -match "k=rsa" -or $dkimRecords -match "v=DKIM1") `
-      -SuccessDetail $dkimRecords.Trim() `
-      -FailureDetail "Expected a DKIM TXT record at $dkimHost."
+      -Condition $dkimPassed `
+      -SuccessDetail $dkimDetail `
+      -FailureDetail "Expected a DKIM TXT or provider CNAME record at $dkimHost."
   } catch {
     $failures.Add("DKIM: lookup failed for $dkimHost.")
     Write-CheckResult -Label "DKIM $dkimHost" -Passed $false -Detail $_.Exception.Message

@@ -30,7 +30,9 @@ param(
   [string]$StripePlatformWebhookSecretSecret = "",
   [string]$FirebaseServiceAccountPrivateKeySecret = "",
   [string]$GithubAppPrivateKeySecret = "",
-  [string]$GoogleServiceAccountJsonSecret = ""
+  [string]$GoogleServiceAccountJsonSecret = "",
+  [switch]$DryRun,
+  [switch]$RequireLaunchReadySecrets
 )
 
 $ErrorActionPreference = "Stop"
@@ -66,33 +68,134 @@ function Join-GcloudAssignments {
   throw "Could not find a safe delimiter for gcloud assignments."
 }
 
-function Assert-SecretExists {
+function Get-AssignmentName {
+  param([string]$Assignment)
+
+  $separator = $Assignment.IndexOf("=")
+
+  if ($separator -lt 0) {
+    return $Assignment
+  }
+
+  return $Assignment.Substring(0, $separator)
+}
+
+function Write-AssignmentSummary {
+  param(
+    [string]$Title,
+    [string[]]$Assignments
+  )
+
+  Write-Host $Title
+
+  if (-not $Assignments -or $Assignments.Count -eq 0) {
+    Write-Host "  <none>"
+    return
+  }
+
+  foreach ($assignment in $Assignments) {
+    Write-Host ("  {0}=<set>" -f (Get-AssignmentName $assignment))
+  }
+}
+
+function Write-SecretSummary {
+  param(
+    [string]$Title,
+    [string[]]$Assignments
+  )
+
+  Write-Host $Title
+
+  if (-not $Assignments -or $Assignments.Count -eq 0) {
+    Write-Host "  <none>"
+    return
+  }
+
+  foreach ($assignment in $Assignments) {
+    $separator = $assignment.IndexOf("=")
+    $name = if ($separator -lt 0) { $assignment } else { $assignment.Substring(0, $separator) }
+    $secretRef = if ($separator -lt 0) { "<set>" } else { $assignment.Substring($separator + 1) }
+    Write-Host ("  {0}={1}" -f $name, $secretRef)
+  }
+}
+
+function Assert-RequiredValue {
+  param(
+    [string]$Label,
+    [string]$Value
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Value)) {
+    throw "$Label is required when -RequireLaunchReadySecrets is set."
+  }
+}
+
+function Assert-StripePriceMap {
+  param([string]$PriceMapJson)
+
+  try {
+    $priceMap = $PriceMapJson | ConvertFrom-Json
+    $growth = $priceMap.growth
+
+    if (
+      [string]::IsNullOrWhiteSpace([string]$growth.monthly) -or
+      [string]::IsNullOrWhiteSpace([string]$growth.annual)
+    ) {
+      throw "missing growth monthly or annual price IDs"
+    }
+  } catch {
+    throw "StripePlatformPriceMapJson must be valid JSON with growth.monthly and growth.annual price IDs when -RequireLaunchReadySecrets is set."
+  }
+}
+
+function Assert-SecretHasEnabledLatestVersion {
   param([string]$SecretName)
 
   if (-not $SecretName) {
     return
   }
 
-  $existingSecrets = @(& gcloud secrets list `
+  & gcloud secrets describe $SecretName `
     "--project" $ProjectId `
-    "--format=value(name)")
+    "--format=value(name)" | Out-Null
 
-  if ($existingSecrets -notcontains $SecretName) {
-    throw "Secret $SecretName does not exist in project $ProjectId."
+  $latestState = [string](& gcloud secrets versions describe latest `
+    "--secret" $SecretName `
+    "--project" $ProjectId `
+    "--format=value(state)")
+
+  if ($latestState.Trim().ToLowerInvariant() -ne "enabled") {
+    throw "Secret $SecretName exists in project $ProjectId, but its latest version is not enabled."
   }
 }
 
-& gcloud services enable `
-  run.googleapis.com `
-  secretmanager.googleapis.com `
-  --project $ProjectId | Out-Null
+if ($RequireLaunchReadySecrets) {
+  Assert-RequiredValue "FirebaseApiKey" $FirebaseApiKey
+  Assert-RequiredValue "FirebaseAuthDomain" $FirebaseAuthDomain
+  Assert-RequiredValue "FirebaseProjectId" $FirebaseProjectId
+  Assert-RequiredValue "FirebaseAppId" $FirebaseAppId
+  Assert-RequiredValue "FirebaseServiceAccountProjectId" $FirebaseServiceAccountProjectId
+  Assert-RequiredValue "FirebaseServiceAccountClientEmail" $FirebaseServiceAccountClientEmail
+  Assert-RequiredValue "FirebaseServiceAccountPrivateKeySecret" $FirebaseServiceAccountPrivateKeySecret
+  Assert-RequiredValue "StripePlatformSecretKeySecret" $StripePlatformSecretKeySecret
+  Assert-RequiredValue "StripePlatformWebhookSecretSecret" $StripePlatformWebhookSecretSecret
+  Assert-RequiredValue "StripePlatformPriceMapJson" $StripePlatformPriceMapJson
+  Assert-StripePriceMap $StripePlatformPriceMapJson
+}
 
-$serviceAccounts = @(& gcloud iam service-accounts list `
-  "--project" $ProjectId `
-  "--format=value(email)")
+if (-not $DryRun) {
+  & gcloud services enable `
+    run.googleapis.com `
+    secretmanager.googleapis.com `
+    --project $ProjectId | Out-Null
 
-if ($serviceAccounts -notcontains $RuntimeServiceAccountEmail) {
-  throw "Service account $RuntimeServiceAccountEmail does not exist in project $ProjectId."
+  $serviceAccounts = @(& gcloud iam service-accounts list `
+    "--project" $ProjectId `
+    "--format=value(email)")
+
+  if ($serviceAccounts -notcontains $RuntimeServiceAccountEmail) {
+    throw "Service account $RuntimeServiceAccountEmail does not exist in project $ProjectId."
+  }
 }
 
 $envAssignments = @(
@@ -154,11 +257,27 @@ foreach ($key in $secretEnvMap.Keys) {
     continue
   }
 
-  Assert-SecretExists $secretName
+  if (-not $DryRun) {
+    Assert-SecretHasEnabledLatestVersion $secretName
+  }
+
   $secretAssignments += ("{0}={1}:latest" -f $key, $secretName)
 }
 
-$args = @(
+Write-Host ("Cloud Run service: {0}" -f $ServiceName)
+Write-Host ("Project: {0}" -f $ProjectId)
+Write-Host ("Region: {0}" -f $Region)
+Write-Host ("Runtime service account: {0}" -f $RuntimeServiceAccountEmail)
+Write-AssignmentSummary "Environment variables to set (values redacted):" $envAssignments
+Write-SecretSummary "Secret refs to set:" $secretAssignments
+
+if ($DryRun) {
+  Write-Host "Dry run complete. No gcloud services enable or Cloud Run update command was executed."
+  Write-Host "Remote Secret Manager version validation is skipped during dry runs."
+  return
+}
+
+$gcloudArgs = @(
   "run", "services", "update", $ServiceName,
   "--project", $ProjectId,
   "--region", $Region,
@@ -167,12 +286,12 @@ $args = @(
 
 $envBlob = Join-GcloudAssignments $envAssignments
 if ($envBlob) {
-  $args += @("--set-env-vars", $envBlob)
+  $gcloudArgs += @("--set-env-vars", $envBlob)
 }
 
 $secretBlob = Join-GcloudAssignments $secretAssignments
 if ($secretBlob) {
-  $args += @("--set-secrets", $secretBlob)
+  $gcloudArgs += @("--set-secrets", $secretBlob)
 }
 
-& gcloud @args
+& gcloud @gcloudArgs

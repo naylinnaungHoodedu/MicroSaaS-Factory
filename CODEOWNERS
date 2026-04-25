@@ -6,6 +6,7 @@
 /src/app/api/** na27@hood.edu
 /src/app/admin/** na27@hood.edu
 /scripts/** na27@hood.edu
+/contracts/** na27@hood.edu
 /Dockerfile na27@hood.edu
 /cloudbuild.yaml na27@hood.edu
 /.env.example na27@hood.edu
