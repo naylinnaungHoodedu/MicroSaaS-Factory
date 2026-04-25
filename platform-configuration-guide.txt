@@ -31,8 +31,14 @@ Click "Create Secret" for each of the following. Add your live values as the sec
 3. Secret Name: `microsaas_firebase_admin_key`
    Payload: The full Firebase Admin Service Account JSON string.
 
-4. (If applicable) Secret Name: `microsaas_firebase_api_key`
-   Payload: Your Firebase Web Client API key.
+4. Secret Name: `microsaas-factory-encryption-key`
+   Payload: A strong random string (at least 16 characters) for payload encryption.
+
+5. Secret Name: `microsaas-factory-internal-automation-key`
+   Payload: A strong random string for internal Cloud Scheduler authorization.
+
+6. Secret Name: `microsaas-factory-admin-access-key`
+   Payload: A strong random string to protect the `/admin` portal.
 
 Step 1.3: Grant Permissions to Cloud Run
 Your Cloud Run service identity needs permission to read these secrets.
