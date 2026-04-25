@@ -45,6 +45,7 @@ test("founder can persist build state and trigger build-tab refresh actions", as
   );
 
   await page.goto(`/app/products/${productId}/build`);
+  await page.waitForLoadState("networkidle");
   await expect(page.getByLabel("Release goal")).toHaveValue(
     "Ship the first founder-ready beta lane",
   );
