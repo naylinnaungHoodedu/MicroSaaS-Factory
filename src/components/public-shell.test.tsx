@@ -25,6 +25,7 @@ describe("public shell", () => {
     );
 
     expect(html).toContain('href="/"');
+    expect(html).toContain('href="/demo"');
     expect(html).toContain('href="/help"');
     expect(html).toContain('href="/pricing"');
     expect(html).toContain('href="/signup"');
@@ -33,6 +34,7 @@ describe("public shell", () => {
     expect(html).toContain("Start founder workspace");
     expect(html).toContain("See pricing");
     expect(html).toContain("Solo founder operating system");
+    expect(html).toContain("Demo");
     expect(html).toContain("Help");
     expect(html).toContain("Get started");
   });

@@ -16,7 +16,14 @@ type PublicStructuredData = {
   "@graph": Array<Record<string, unknown>>;
 };
 
-export type PublicRouteSeoKey = "home" | "pricing" | "signup" | "login" | "waitlist" | "help";
+export type PublicRouteSeoKey =
+  | "home"
+  | "pricing"
+  | "signup"
+  | "login"
+  | "waitlist"
+  | "help"
+  | "demo";
 
 export function buildPublicPageMetadata(input: {
   description?: string;
@@ -104,6 +111,22 @@ export function getPublicRouteSeoContent(
         "growth plan",
         "workspace billing",
         "guided signup",
+      ],
+    };
+  }
+
+  if (route === "demo") {
+    return {
+      title: "Demo",
+      description:
+        "Read-only MicroSaaS Factory demo showing how a solo founder moves from signal to validation, spec, build, launch, and ongoing operation.",
+      path: "/demo",
+      keywords: [
+        "microsaas demo",
+        "founder operating system demo",
+        "validation CRM demo",
+        "launch readiness demo",
+        "solo founder workflow",
       ],
     };
   }

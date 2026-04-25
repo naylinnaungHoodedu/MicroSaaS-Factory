@@ -2417,3 +2417,76 @@ Repo-side implementation completed with local verification. Full live self-serve
 **Publication Notes**:
 - The draft pull request targets `main` and preserves human review for controlled-path changes.
 - No force push, destructive reset, or production infrastructure mutation was performed.
+
+---
+
+### Session: Ultimate Demo Tabs Implementation
+**Date**: April 25, 2026
+
+**Goal**: Add read-only public and authenticated Demo tabs for MicroSaaS Factory using the current dark product system, without adding persistence, APIs, schema changes, dependencies, runtime settings, or production mutations.
+
+**Changes Completed**:
+- Added a shared Demo content model and reusable Demo Center renderer for public and workspace modes.
+- Added public `/demo` with public shell navigation, SEO metadata, FAQ structured data, sitemap inclusion, launch-readiness context, and links back to existing signup, pricing, and login paths.
+- Added authenticated `/app/demo` with existing founder auth and read-only workspace/dashboard/pricing/funnel reads to show workspace name, founder email, product counts, CRM attention, launch-gate posture, MRR, checkout posture, and current product lane links.
+- Added Demo to the public header/footer navigation and authenticated app navigation.
+- Added Vitest coverage for public Demo rendering/metadata, workspace Demo rendering, public shell Demo navigation, and sitemap Demo inclusion.
+- Added Playwright coverage for public and authenticated Demo tab behavior.
+- Regenerated `sbom.cdx.json` after the implementation.
+
+**Verification Completed**:
+- `npx tsc --noEmit --pretty false` passed.
+- Focused Demo/navigation Vitest run passed: 8/8 tests across 4 files.
+- `npm ci` passed; npm still reported the existing 2 low and 10 moderate transitive advisories.
+- `npm run lint` passed.
+- `npm test` passed: 169/169 tests across 38 files.
+- `npm run test:coverage` passed and emitted V8 coverage evidence.
+- `npm run build` passed and listed both `/demo` and `/app/demo`.
+- `npm run test:e2e` passed: 16/16 Chromium scenarios.
+- `npm run audit:deps` passed the High/Critical threshold; existing low/moderate transitive advisories remain.
+- `npm run sbom:generate` regenerated `sbom.cdx.json`.
+- `git diff --check` passed with only expected Windows line-ending warnings.
+- `rg -n "@ts-ignore|\\bany\\b" src e2e scripts | rg -v "expect\\.any"` returned no matches.
+- `git diff --name-only HEAD -- .local .next test-results tsconfig.tsbuildinfo` returned no tracked generated-path diffs.
+- `git diff --name-only HEAD -- Dockerfile cloudbuild.yaml next.config.ts .env.example scripts src/app/api src/lib/server src/lib/firebase src/instrumentation.ts` returned no Section 6.1.1 controlled runtime/deploy diffs.
+
+**Blocked/Deferred Gates**:
+- `docker build -t microsaas-factory-local .` failed because Docker could not connect to `//./pipe/dockerDesktopLinuxEngine`.
+- `npm run audit:container` was not run because no local Docker image could be built without Docker Desktop's Linux engine.
+
+---
+
+### Session: Ultimate Demo Tabs Polish Continuation
+**Date**: April 25, 2026
+
+**Goal**: Continue the local public and authenticated Demo tabs using the live `https://microsaasfactory.io/` public site as the visual and content alignment target, while keeping Demo read-only and avoiding APIs, persistence, schemas, dependencies, runtime settings, deployment changes, or production mutation.
+
+**Changes Completed**:
+- Expanded the shared Demo content model with section anchors, public and workspace priority paths, operating-model cards, workflow-spine items, refined proof cards, and expanded FAQ copy.
+- Refined the shared Demo Center renderer with a stronger live-site-aligned hero, status badges, launch-aware auxiliary panel, compact signal tiles, a "Read this first" guidance band, horizontal section anchors, quick-start priorities, operating-model cards, and a workflow-spine section.
+- Preserved the existing `/demo` and `/app/demo` route contracts; public Demo still reads public funnel state, and workspace Demo still requires founder context and reads dashboard/pricing/funnel state without mutating data.
+- Updated focused Demo unit coverage and Playwright coverage so the new quick-start, readiness, workflow-spine, proof, FAQ, public Demo, and workspace Demo behaviors are asserted.
+- Regenerated `sbom.cdx.json` through the checked-in SBOM script.
+
+**Verification Completed**:
+- `rg --files -g "AGENTS.md"` confirmed the root governance file applies to the edited Demo paths.
+- `CODEOWNERS` exists, and `git diff --name-only HEAD -- Dockerfile cloudbuild.yaml next.config.ts .env.example scripts src/app/api src/lib/server src/lib/firebase src/instrumentation.ts` returned no controlled runtime/deploy diffs.
+- Live `https://microsaasfactory.io/` was reviewed for the public visual/content source of truth; live `/demo` and `/app/demo` still return `404`, so this remains local until deployed.
+- `npx tsc --noEmit --pretty false` passed.
+- Focused Demo ESLint passed for `src/components/demo-center.tsx`, `src/lib/demo-content.ts`, Demo pages, Demo tests, and `e2e/demo.spec.ts`.
+- Focused Demo/navigation Vitest run passed: 8/8 tests across 4 files.
+- `npm ci` initially hit a transient Windows/OneDrive `EPERM` lock on `lightningcss.win32-x64-msvc.node`; after checking for project-scoped Node/npm/Playwright processes and retrying, `npm ci` passed.
+- `npm run lint` passed.
+- `npm test` passed: 169/169 tests across 38 files.
+- `npm run test:coverage` passed and emitted V8 coverage evidence; `src/components/demo-center.tsx` reported 94.87% statement coverage.
+- `npm run build` passed and listed both `/demo` and `/app/demo`.
+- `npm run test:e2e` passed: 16/16 Chromium scenarios.
+- `npm run audit:deps` passed the High/Critical threshold; existing low/moderate transitive advisories remain.
+- `npm run sbom:generate` regenerated `sbom.cdx.json`.
+- `git diff --check` passed with only expected Windows line-ending warnings.
+- `rg -n "@ts-ignore|\\bany\\b" src e2e scripts | rg -v "expect\\.any"` returned no matches.
+- `git diff --name-only HEAD -- .local .next test-results tsconfig.tsbuildinfo` returned no tracked generated-path diffs.
+
+**Blocked/Deferred Gates**:
+- `docker build -t microsaas-factory-local .` was not run because `docker version` could not connect to `//./pipe/dockerDesktopLinuxEngine`.
+- `npm run audit:container` remains blocked because no local Docker image can be built without Docker Desktop's Linux engine.

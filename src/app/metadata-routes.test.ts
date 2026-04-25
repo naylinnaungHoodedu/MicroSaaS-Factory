@@ -59,6 +59,7 @@ describe("metadata routes", () => {
     expect(urls).toEqual(
       expect.arrayContaining([
         "https://microsaasfactory.io/",
+        "https://microsaasfactory.io/demo",
         "https://microsaasfactory.io/help",
         "https://microsaasfactory.io/login",
         "https://microsaasfactory.io/terms",

@@ -5,6 +5,7 @@ import { requireFounderContext } from "@/lib/server/auth";
 
 const APP_LINKS = [
   { href: "/app", label: "Dashboard" },
+  { href: "/app/demo", label: "Demo" },
   { href: "/app/crm", label: "CRM" },
   { href: "/app/help", label: "Help" },
 ] as const;
