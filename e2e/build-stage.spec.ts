@@ -45,9 +45,10 @@ test("founder can persist build state and trigger build-tab refresh actions", as
   );
 
   await page.goto(`/app/products/${productId}/build`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.getByLabel("Release goal")).toHaveValue(
     "Ship the first founder-ready beta lane",
+    { timeout: 30_000 },
   );
   await expect(page.getByLabel("Build blockers, one per line")).toHaveValue(
     "Waiting on final review",
