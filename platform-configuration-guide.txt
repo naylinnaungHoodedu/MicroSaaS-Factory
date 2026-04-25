@@ -1,0 +1,132 @@
+MICROSAAS FACTORY — PLATFORM CONFIGURATION & GO-LIVE GUIDE
+Version: 1.0.0
+Date: April 25, 2026
+
+This document provides the definitive step-by-step procedure for transitioning the MicroSaaS Factory platform from its current "verified deployment" state to a "fully activated" live production state. 
+
+These tasks occur outside the application codebase and require interaction with Google Cloud Platform (GCP), Stripe, Firebase, and your DNS provider.
+
+================================================================================
+PHASE 1: INJECTING SECRETS INTO GCP SECRET MANAGER
+================================================================================
+Your application code expects specific environment variables to be securely mounted at runtime. To prevent secrets from leaking into source control, you must inject them into Google Cloud Secret Manager.
+
+Step 1.1: Prepare Your Live Credentials
+Gather the following live production keys:
+[ ] Stripe Secret Key (sk_live_...)
+[ ] Stripe Webhook Secret (whsec_...)
+[ ] Firebase Admin Service Account JSON (entire JSON payload)
+[ ] Firebase Client Config values (API Key, Auth Domain, Project ID, etc.)
+
+Step 1.2: Create Secrets in GCP
+Open the Google Cloud Console and navigate to "Security" -> "Secret Manager".
+Click "Create Secret" for each of the following. Add your live values as the secret payload:
+
+1. Secret Name: `microsaas_stripe_secret_key`
+   Payload: Your Stripe `sk_live_...` string.
+
+2. Secret Name: `microsaas_stripe_webhook_secret`
+   Payload: Your Stripe `whsec_...` string.
+
+3. Secret Name: `microsaas_firebase_admin_key`
+   Payload: The full Firebase Admin Service Account JSON string.
+
+4. (If applicable) Secret Name: `microsaas_firebase_api_key`
+   Payload: Your Firebase Web Client API key.
+
+Step 1.3: Grant Permissions to Cloud Run
+Your Cloud Run service identity needs permission to read these secrets.
+1. Note the Service Account used by your Cloud Run deployment (usually the default Compute Engine service account, e.g., `[PROJECT_NUMBER]-compute@developer.gserviceaccount.com`).
+2. In Secret Manager, select all the newly created secrets.
+3. Click "Permissions" (or "Add Principal").
+4. Add the Cloud Run Service Account.
+5. Assign the role: "Secret Manager Secret Accessor".
+6. Click "Save".
+
+================================================================================
+PHASE 2: BINDING SECRETS TO CLOUD RUN RUNTIME
+================================================================================
+Now you must tell Cloud Run to mount those GCP secrets as environment variables inside the running container.
+
+Step 2.1: Use the Existing Setup Script
+You can use the provided PowerShell script in your repository to automatically configure the Cloud Run environment.
+1. Open PowerShell.
+2. Navigate to your repository root: `cd c:\Users\user\OneDrive\Documents\SaaS_Project`
+3. Execute the runtime configurator:
+   `.\scripts\configure-cloud-run-runtime.ps1 -Project microsaas-factory-prod -Region us-central1`
+   *(Ensure you update the `-Project` and `-Region` flags to match your actual GCP project ID and Cloud Run region).*
+
+Step 2.2: Manual Verification (Alternative)
+If you prefer to configure this manually via the GCP Console:
+1. Navigate to "Cloud Run" in GCP.
+2. Select your `microsaas-factory` service.
+3. Click "Edit & Deploy New Revision".
+4. Go to the "Variables & Secrets" tab.
+5. Under "Secrets", click "Reference a secret".
+6. Select `microsaas_stripe_secret_key` and mount it as environment variable `STRIPE_SECRET_KEY`.
+7. Select `microsaas_stripe_webhook_secret` and mount it as `STRIPE_WEBHOOK_SECRET`.
+8. Select `microsaas_firebase_admin_key` and mount it as `FIREBASE_ADMIN_CREDENTIALS`.
+9. Click "Deploy".
+
+================================================================================
+PHASE 3: FINAL DOMAIN & DNS SETUP
+================================================================================
+To ensure your domain (microsaasfactory.io) routes correctly and emails land in user inboxes without bouncing, strict DNS configuration is required.
+
+Step 3.1: Cloud Run Domain Mapping
+1. In the GCP Console, go to "Cloud Run" -> "Manage Custom Domains".
+2. Add a mapping for `microsaasfactory.io` targeting your Cloud Run service.
+3. GCP will provide you with specific A, AAAA, or CNAME records.
+
+Step 3.2: Configure Base DNS Records
+Log into your DNS registrar (e.g., Cloudflare, Namecheap, Google Domains) and add the records provided by GCP.
+Typical setup:
+- Type: `A` | Name: `@` | Value: [GCP provided IP address]
+- Type: `A` | Name: `@` | Value: [GCP provided IP address 2]
+- Type: `CNAME` | Name: `www` | Value: `ghs.googlehosted.com.`
+
+Step 3.3: HTTP to HTTPS Redirection (Apex Redirect)
+Ensure that traffic to `http://microsaasfactory.io` is permanently redirected (301) to `https://microsaasfactory.io`.
+- If using Cloudflare: Enable "Always Use HTTPS" in the Edge Certificates tab.
+- If using Google Domains: Set up a synthetic record for Subdomain Forwarding.
+
+Step 3.4: Email Authentication (DKIM, SPF, DMARC)
+To send operational emails (invites, password resets, onboarding), you must authenticate your domain. Log into your email delivery provider (e.g., Postmark, SendGrid, Firebase Authentication custom domain settings) and retrieve their DNS requirements.
+
+Add the following records to your DNS registrar:
+1. SPF Record (Example)
+   - Type: `TXT`
+   - Name: `@`
+   - Value: `v=spf1 include:_spf.yourprovider.com ~all`
+
+2. DKIM Record (Example)
+   - Type: `CNAME` (or TXT)
+   - Name: `[selector]._domainkey`
+   - Value: `[provided-by-email-service]`
+
+3. DMARC Record (Mandatory for modern email deliverability)
+   - Type: `TXT`
+   - Name: `_dmarc`
+   - Value: `v=DMARC1; p=quarantine; adkim=r; aspf=r;`
+
+================================================================================
+PHASE 4: LIVE VERIFICATION
+================================================================================
+Once DNS propagation completes (can take 5 mins to 24 hours) and secrets are mounted:
+
+Step 4.1: Verify Health Endpoint
+Navigate to `https://microsaasfactory.io/api/healthz`.
+Expected Result: The JSON payload should now show:
+- `checkoutReady: true`
+- `selfServeReady: true`
+
+Step 4.2: Perform a Live End-to-End Test
+1. Go to `https://microsaasfactory.io`.
+2. Sign up as a new user.
+3. Attempt to access a gated product feature.
+4. Process a test transaction (if Stripe is still in Test Mode) or a live $1.00 transaction (if Stripe is in Live Mode).
+5. Verify the email invite/receipt lands in your inbox and does not get flagged as spam.
+
+================================================================================
+END OF GUIDE
+================================================================================
