@@ -53,8 +53,8 @@ You can use the provided PowerShell script in your repository to automatically c
 1. Open PowerShell.
 2. Navigate to your repository root: `cd c:\Users\user\OneDrive\Documents\SaaS_Project`
 3. Execute the runtime configurator:
-   `.\scripts\configure-cloud-run-runtime.ps1 -Project microsaas-factory-prod -Region us-central1`
-   *(Ensure you update the `-Project` and `-Region` flags to match your actual GCP project ID and Cloud Run region).*
+   `.\scripts\configure-cloud-run-runtime.ps1 -ProjectId microsaas-factory-prod -Region us-central1 -AppUrl https://microsaasfactory.io -FirestoreProjectId microsaas-factory-prod`
+   *(Ensure you update the flags to match your actual GCP project ID and refer to the script for additional secret mapping flags).*
 
 Step 2.2: Manual Verification (Alternative)
 If you prefer to configure this manually via the GCP Console:
@@ -63,9 +63,9 @@ If you prefer to configure this manually via the GCP Console:
 3. Click "Edit & Deploy New Revision".
 4. Go to the "Variables & Secrets" tab.
 5. Under "Secrets", click "Reference a secret".
-6. Select `microsaas_stripe_secret_key` and mount it as environment variable `STRIPE_SECRET_KEY`.
-7. Select `microsaas_stripe_webhook_secret` and mount it as `STRIPE_WEBHOOK_SECRET`.
-8. Select `microsaas_firebase_admin_key` and mount it as `FIREBASE_ADMIN_CREDENTIALS`.
+6. Select `microsaas_stripe_secret_key` and mount it as environment variable `STRIPE_PLATFORM_SECRET_KEY`.
+7. Select `microsaas_stripe_webhook_secret` and mount it as `STRIPE_PLATFORM_WEBHOOK_SECRET`.
+8. Select `microsaas_firebase_admin_key` and mount it as `FIREBASE_ADMIN_CREDENTIALS_JSON`.
 9. Click "Deploy".
 
 ================================================================================
