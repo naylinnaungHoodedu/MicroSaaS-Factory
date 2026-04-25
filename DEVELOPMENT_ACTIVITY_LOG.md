@@ -2832,3 +2832,116 @@ The `MicroSaaS-Factory` repository codebase represents a fully verified, 100% cl
 **Review Notes**:
 - Publication remains on a draft pull request for review; `main` was not pushed directly.
 - No force push, destructive reset, live Cloud Run mutation, Secret Manager mutation, DNS mutation, Firebase mutation, or Stripe mutation was performed.
+
+---
+
+### Session: Full Production Deployment — Technical Record
+**Date**: April 25, 2026
+
+**Goal**: Deploy all completed feature work to production via the Cloud Build CI/CD pipeline, fix latent CI configuration issues discovered during deployment, and verify live production behavior.
+
+**Cloud Build YAML Fix — Shell Variable Escaping**:
+- **Problem**: `cloudbuild.yaml` Step #7 (Playwright E2E) contained unescaped shell variables (`$!`, `$SERVER_PID`, `$(seq 1 240)`, `$?`) in inline bash scripts. Cloud Build parses `$` as substitution references, causing `INVALID_ARGUMENT: key in the template "SERVER_PID"`.
+- **Fix** (`e78061b`): Escaped all shell variables as `$$` per Cloud Build YAML specification:
+  ```yaml
+  SERVER_PID=$$!
+  kill "$$SERVER_PID" 2>/dev/null || true
+  for i in $$(seq 1 240); do
+  exit $$?
+  ```
+- **Context**: This bug was latent — the E2E step was newly added to `cloudbuild.yaml` as part of the Help Center and Demo Tabs feature set and had never been executed in Cloud Build before.
+
+**E2E Timing Fix — Build Stage SSR Hydration**:
+- **Problem**: `e2e/build-stage.spec.ts` line 48 asserted `page.getByLabel("Release goal").toHaveValue("Ship the first founder-ready beta lane")` with the default 10s timeout. This passed locally (19 workers, fast I/O) but failed in Cloud Build (1 worker, network-attached storage) because the server-rendered page hadn't hydrated the form values within 10s.
+- **Fix 1** (`fc3ee80`): Added `page.waitForLoadState("networkidle")` after `page.goto()`. Result: still failed in Cloud Build.
+- **Fix 2** (`87a8e65`): Changed to `page.waitForLoadState("domcontentloaded")` and increased assertion timeout to `30_000ms`. Result: **passed** in Cloud Build (16/16).
+- **Analysis**: The `networkidle` event fires when no network requests have occurred for 500ms, but on Cloud Build, the server-side data fetch for the build-state form fields takes longer than expected due to single-vCPU resource constraints. The 30s assertion timeout allows the Playwright auto-retry to poll for the expected value while the page hydrates.
+
+**Cloud Build Pipeline — Successful Run**:
+```
+Build ID:    5fbdc6e7-9a42-4b9d-be27-80ddfeabdace
+Duration:    9M25S
+Source:      gs://naylinnaung_cloudbuild/source/1777097241.517979-...tgz
+Status:      SUCCESS
+```
+
+**Pipeline Step Results**:
+| Step | Name | Result | Duration (approx) |
+|------|------|--------|-------------------|
+| 0 | Install | `npm ci` — exit 0 | 30s |
+| 1 | Lint | `eslint .` — exit 0 | 10s |
+| 2 | Unit | `vitest run` — 169/169 — exit 0 | 15s |
+| 3 | Coverage | `vitest run --coverage` — V8 coverage — exit 0 | 15s |
+| 4 | Dependency Audit | `npm audit --audit-level=high` — 0 High/Critical — exit 0 | 5s |
+| 5 | SBOM | `npm sbom --sbom-format=cyclonedx` — `sbom.cdx.json` verified — exit 0 | 5s |
+| 6 | Build | `next build` — 30 routes — exit 0 | 70s |
+| 7 | Playwright E2E | 16/16 Chromium — exit 0 | 102s |
+| 8 | Docker Build | 21-step multi-stage — exit 0 | 60s |
+| 9 | Docker Push | Artifact Registry push — exit 0 | 15s |
+| 10 | Cloud Run Deploy | Revision deployed, 100% traffic — exit 0 | 90s |
+
+**Docker Image Artifact**:
+```
+Image:   us-central1-docker.pkg.dev/naylinnaung/microsaas-factory/web:deploy-20260425-3
+Digest:  sha256:7f7281c1c0c60afcd782689556b0a23ef6fbe0ca4ad573a539d1c970c38b7a79
+Base:    node:20-bookworm-slim@sha256:f93745c153377ee2fbbdd6e24efcd03cd2e86d6ab1d8aa9916a3790c40313a55
+```
+
+**Cloud Run Revision**:
+```
+Revision:     microsaas-factory-00013-x5c
+Traffic:      100%
+Service URL:  https://microsaas-factory-54872079170.us-central1.run.app
+Domain Map:   https://microsaasfactory.io
+```
+
+**Post-Deployment Route Verification**:
+| Route | HTTP Status | Title/Content |
+|-------|-------------|---------------|
+| `/` | 200 | "MicroSaaS Factory" — landing page |
+| `/help` | 200 | "Help Center | MicroSaaS Factory" — public Help Center |
+| `/demo` | 200 | "Demo | MicroSaaS Factory" — public Demo |
+| `/pricing` | 200 | "Pricing | MicroSaaS Factory" — Growth plan details |
+| `/signup` | 200 | Signup page |
+| `/login` | 200 | Login page |
+| `/waitlist` | 200 | Waitlist form |
+| `/terms` | 200 | Terms of service |
+| `/privacy` | 200 | Privacy policy |
+| `/api/healthz` | 200 | `ok: true`, `pricingReady: true`, `signupIntentReady: true`, `automationReady: true` |
+| `/sitemap.xml` | 200 | 9 URLs including `/demo` and `/help` |
+| `/robots.txt` | 200 | Standard production robots.txt |
+
+**Repository Commits Since Last Deployment (`574d75b..87a8e65`)**:
+| Hash | Message |
+|------|---------|
+| `997223b` | Publish completed activities update |
+| `4d84cf5` | Log GitHub publication result |
+| `2060b29` | Polish demo tabs |
+| `8f5d99a` | Log demo GitHub publication |
+| `4eabc9c` | Regenerate SBOM before production deployment |
+| `e78061b` | Fix Cloud Build shell variable escaping in Playwright E2E step |
+| `fc3ee80` | Fix build-stage E2E timing in Cloud Build by adding networkidle wait after navigation |
+| `87a8e65` | Increase build-stage E2E timeout to 30s for Cloud Build CI server hydration latency |
+
+**Controlled-Path Changes in This Deployment**:
+- `cloudbuild.yaml` — Shell variable escaping fix (Section 6.1.1 validated-state boundary).
+- `scripts/cloud-ops-runbook.md` — Updated with deployment runbook entries.
+- `scripts/configure-cloud-run-runtime.ps1` — Updated runtime configuration script.
+- `scripts/verify-public-edge.ps1` — Updated edge verification script.
+- `AGENTS.md` — Classification updates.
+- `CODEOWNERS` — Governance file.
+- `package.json` / `package-lock.json` — Audit, SBOM, and coverage script additions.
+
+**Quality Gates Status Post-Deployment**:
+- [x] `npm run lint` exited 0
+- [x] `npm test` exited 0 — 169/169
+- [x] `npm run test:coverage` exited 0
+- [x] `npm run build` exited 0 — 30 routes
+- [x] `npm run test:e2e` exited 0 — 16/16
+- [x] `package-lock.json` updated alongside `package.json`
+- [x] `npm audit --audit-level=high` — 0 High/Critical
+- [x] `npm run sbom:generate` — `sbom.cdx.json` produced
+- [x] Docker image built and pushed via Cloud Build
+- [x] Activity logs updated
+- [ ] `docker build -t microsaas-factory-local .` — local Docker Desktop Linux engine still unavailable
+- [ ] `npm run audit:container` — blocked by local Docker engine unavailability

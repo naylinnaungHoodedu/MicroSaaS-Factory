@@ -2508,6 +2508,96 @@ Repo-side implementation completed with local verification. Full live self-serve
 - Committed the Demo implementation and polish package as `2060b29` with message `Polish demo tabs`.
 - Pushed commit `2060b29` to `origin/codex/completed-activities-update`, updating draft pull request `#3`.
 
+
 **Publication Notes**:
 - The update preserves the existing draft PR review workflow rather than pushing directly to `main`.
 - No force push, destructive reset, production infrastructure mutation, Secret Manager mutation, DNS mutation, Firebase mutation, or Stripe mutation was performed.
+
+---
+
+### Session: Full Production Deployment — All Completed Activities
+**Date**: April 25, 2026
+
+**Goal**: Deploy all completed activities (Help Center, Demo Tabs, audit tooling, governance updates, launch-hardening scripts, SBOM, and documentation) to the live production environment at `https://microsaasfactory.io` via the Cloud Build CI/CD pipeline.
+
+**Pre-Deployment Verification (Local)**:
+- `npm run lint` passed (exit 0).
+- `npm test` passed: 169/169 tests across 38 files (3.07s).
+- `npm run build` passed: 30 routes including `/help`, `/demo`, `/app/help`, `/app/demo`.
+- `npm run test:e2e` passed: 16/16 Chromium scenarios (52.7s).
+- `npm run audit:deps` passed the High/Critical threshold; 2 low + 10 moderate transitive advisories in Firebase/Google dependency chain remain unchanged.
+- `npm run sbom:generate` regenerated `sbom.cdx.json`.
+
+**Git Operations**:
+- Committed SBOM regeneration as `4eabc9c` on branch `codex/completed-activities-update`.
+- Switched to `main` and performed fast-forward merge of `codex/completed-activities-update` (5 commits: `997223b`, `4d84cf5`, `2060b29`, `8f5d99a`, `4eabc9c`).
+- Pushed `main` to `origin` (`574d75b..4eabc9c`).
+- Working tree confirmed clean on `main`.
+
+**Cloud Build CI/CD Pipeline — Attempt 1 (Build `4361ae94`)**:
+- All steps passed through Step #6 (Build) — Install, Lint, Unit (169/169), Coverage, Dependency Audit, SBOM, Build.
+- Step #7 (Playwright E2E) failed: 1/16 — `build-stage.spec.ts` timing issue where `toHaveValue("Ship the first founder-ready beta lane")` received `""` with 10s timeout on Cloud Build's slower hardware.
+- Root cause: SSR-rendered form values require hydration time on the single-vCPU Cloud Build runner.
+
+**Cloud Build Fix — Shell Variable Escaping (`e78061b`)**:
+- Identified `INVALID_ARGUMENT: key in the template "SERVER_PID"` error in the initial Cloud Build submission.
+- Fixed `cloudbuild.yaml` by escaping shell variables (`$!`, `$SERVER_PID`, `$(seq ...)`, `$?`) as `$$` — Cloud Build YAML requires `$$` for literal `$` in inline scripts.
+- This was a latent bug in `cloudbuild.yaml` that had not surfaced in previous deployments because the E2E step was not present in the pipeline until the current feature set.
+
+**Cloud Build Fix — E2E Timing (`fc3ee80`, `87a8e65`)**:
+- First fix: added `page.waitForLoadState("networkidle")` after navigation to `/app/products/${productId}/build`.
+- Second fix (after networkidle was insufficient): changed to `domcontentloaded` + increased assertion timeout to 30,000ms for the `Release goal` value check.
+- Both fixes committed to `main` and pushed to `origin`.
+
+**Cloud Build CI/CD Pipeline — Attempt 3 (Build `5fbdc6e7`, **SUCCESS**)**:
+- **Build ID**: `5fbdc6e7-9a42-4b9d-be27-80ddfeabdace`
+- **Duration**: 9 minutes 25 seconds
+- **Pipeline Steps Passed**:
+  1. `Install` — `npm ci` (exit 0)
+  2. `Lint` — `npm run lint` (exit 0)
+  3. `Unit` — `npm test` — 169/169 (exit 0)
+  4. `Coverage` — `npm run test:coverage` — V8 coverage generated (exit 0)
+  5. `Dependency Audit` — `npm run audit:deps` — 0 High/Critical (exit 0)
+  6. `SBOM` — `npm run sbom:generate` — `sbom.cdx.json` verified (exit 0)
+  7. `Build` — `npm run build` — 30 routes (exit 0)
+  8. `Playwright E2E` — 16/16 passed in 1.7m (exit 0)
+  9. `Docker Build` — Image built from `node:20-bookworm-slim` (exit 0)
+  10. `Docker Push` — Pushed to Artifact Registry (exit 0)
+  11. `Cloud Run Deploy` — Revision deployed and serving (exit 0)
+- **Image**: `us-central1-docker.pkg.dev/naylinnaung/microsaas-factory/web:deploy-20260425-3`
+- **Image Digest**: `sha256:7f7281c1c0c60afcd782689556b0a23ef6fbe0ca4ad573a539d1c970c38b7a79`
+- **Cloud Run Revision**: `microsaas-factory-00013-x5c` — serving 100% traffic
+- **Service URL**: `https://microsaas-factory-54872079170.us-central1.run.app`
+- **Custom Domain**: `https://microsaasfactory.io`
+
+**Post-Deployment Live Verification**:
+- `GET https://microsaasfactory.io/help` → **200** — Title: "Help Center | MicroSaaS Factory", OG Description present.
+- `GET https://microsaasfactory.io/demo` → **200** — Title: "Demo | MicroSaaS Factory", OG Description present.
+- `GET https://microsaasfactory.io/api/healthz` → **200** — `ok: true`, `pricingReady: true`, `signupIntentReady: true`, `automationReady: true`.
+- `GET https://microsaasfactory.io/` → **200** — Title: "MicroSaaS Factory".
+- `GET https://microsaasfactory.io/pricing` → **200** — Title: "Pricing | MicroSaaS Factory".
+- `GET https://microsaasfactory.io/sitemap.xml` → **200** — 9 URLs including `/demo` (priority 0.9) and `/help` (priority 0.8).
+- Browser visual audit confirmed Help Center, Demo tabs, navigation links, and page layouts render correctly on production.
+
+**New Routes Now Live on Production**:
+| Route | Type | Status |
+|-------|------|--------|
+| `/help` | Public Help Center | ✅ Live |
+| `/demo` | Public Demo | ✅ Live |
+| `/app/help` | Authenticated Help Center | ✅ Live |
+| `/app/demo` | Authenticated Demo | ✅ Live |
+
+**Files Changed in This Deployment (34 files, +32,504/-53 lines)**:
+- New: `e2e/demo.spec.ts`, `e2e/help.spec.ts`, `sbom.cdx.json`, `src/app/app/demo/page.{tsx,test.tsx}`, `src/app/app/help/page.{tsx,test.tsx}`, `src/app/demo/page.{tsx,test.tsx}`, `src/app/help/page.{tsx,test.tsx}`, `src/components/demo-center.tsx`, `src/components/help-center.tsx`, `src/lib/demo-content.ts`, `src/lib/help-content.ts`.
+- Modified: `ACTIVITY_LOG.md`, `AGENTS.md`, `CODEOWNERS`, `COMMERCIAL_LAUNCH_REPORT.md`, `DEVELOPMENT_ACTIVITY_LOG.md`, `README.md`, `cloudbuild.yaml`, `eslint.config.mjs`, `package-lock.json`, `package.json`, `scripts/cloud-ops-runbook.md`, `scripts/configure-cloud-run-runtime.ps1`, `scripts/verify-public-edge.ps1`, `src/app/app/layout.tsx`, `src/app/metadata-routes.test.ts`, `src/app/public-metadata.ts`, `src/app/sitemap.ts`, `src/components/public-shell.{tsx,test.tsx}`.
+
+**Repository State**:
+- Branch: `main`
+- HEAD: `87a8e65`
+- Remote: `origin/main` synced
+- Working tree: clean
+
+**Remaining External Blockers (unchanged)**:
+- `selfServeReady: false` — Firebase client/admin configuration incomplete.
+- `checkoutReady: false` — Stripe keys not provisioned in production Secret Manager.
+- HTTP→HTTPS permanent `301` redirect and DKIM/DMARC DNS records are external platform tasks.
