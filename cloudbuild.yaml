@@ -67,16 +67,16 @@ steps:
         export PORT=3100
         export PLAYWRIGHT_SKIP_WEBSERVER=1
         node scripts/e2e-web-server.mjs > /tmp/microsaas-factory-e2e-server.log 2>&1 &
-        SERVER_PID=$!
+        SERVER_PID=$$!
         cleanup() {
-          kill "$SERVER_PID" 2>/dev/null || true
-          wait "$SERVER_PID" 2>/dev/null || true
+          kill "$$SERVER_PID" 2>/dev/null || true
+          wait "$$SERVER_PID" 2>/dev/null || true
         }
         trap cleanup EXIT
-        for i in $(seq 1 240); do
+        for i in $$(seq 1 240); do
           if node -e "fetch('http://127.0.0.1:3100/robots.txt').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"; then
             npx playwright test
-            exit $?
+            exit $$?
           fi
           sleep 1
         done
